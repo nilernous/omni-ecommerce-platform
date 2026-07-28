@@ -1,4 +1,3 @@
+import appConfig from './app/app.config';
 export * from './app';
-export * from './auth';
-export * from './database';
-export * from './logger';
+export default [appConfig];
