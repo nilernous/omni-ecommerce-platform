@@ -1,0 +1,77 @@
+export const PATTERNS = {
+  AUTH: {
+    LOGIN: 'auth.login',
+    REGISTER: 'auth.register',
+    REFRESH: 'auth.refresh',
+    LOGOUT: 'auth.logout',
+    VALIDATE_TOKEN: 'auth.validate_token',
+  },
+  USER: {
+    GET_PROFILE: 'user.get_profile',
+    UPDATE_PROFILE: 'user.update_profile',
+    GET_BY_ID: 'user.get_by_id',
+    LIST_USERS: 'user.list_users',
+  },
+  PRODUCT: {
+    CREATE: 'product.create',
+    UPDATE: 'product.update',
+    DELETE: 'product.delete',
+    GET_BY_ID: 'product.get_by_id',
+    LIST: 'product.list',
+    SEARCH: 'product.search',
+  },
+  CATEGORY: {
+    CREATE: 'category.create',
+    UPDATE: 'category.update',
+    DELETE: 'category.delete',
+    GET_BY_ID: 'category.get_by_id',
+    LIST: 'category.list',
+  },
+  INVENTORY: {
+    CHECK_STOCK: 'inventory.check_stock',
+    RESERVE: 'inventory.reserve',
+    RELEASE: 'inventory.release',
+    UPDATE_STOCK: 'inventory.update_stock',
+  },
+  CART: {
+    GET: 'cart.get',
+    ADD_ITEM: 'cart.add_item',
+    UPDATE_ITEM: 'cart.update_item',
+    REMOVE_ITEM: 'cart.remove_item',
+    CLEAR: 'cart.clear',
+  },
+  ORDER: {
+    CREATE: 'order.create',
+    GET_BY_ID: 'order.get_by_id',
+    LIST_BY_USER: 'order.list_by_user',
+    CANCEL: 'order.cancel',
+    UPDATE_STATUS: 'order.update_status',
+  },
+  PAYMENT: {
+    CREATE_INTENT: 'payment.create_intent',
+    PROCESS: 'payment.process',
+    GET_BY_ID: 'payment.get_by_id',
+    WEBHOOK: 'payment.webhook',
+  },
+  SHIPPING: {
+    CALCULATE_RATES: 'shipping.calculate_rates',
+    CREATE_SHIPMENT: 'shipping.create_shipment',
+    TRACK: 'shipping.track',
+  },
+  COUPON: {
+    APPLY: 'coupon.apply',
+    VALIDATE: 'coupon.validate',
+    CREATE: 'coupon.create',
+    LIST: 'coupon.list',
+  },
+  REVIEW: {
+    CREATE: 'review.create',
+    LIST_BY_PRODUCT: 'review.list_by_product',
+    DELETE: 'review.delete',
+  },
+  NOTIFICATION: {
+    SEND: 'notification.send',
+    LIST_BY_USER: 'notification.list_by_user',
+    MARK_READ: 'notification.mark_read',
+  },
+};

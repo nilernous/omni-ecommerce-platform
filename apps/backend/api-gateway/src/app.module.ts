@@ -1,133 +1,100 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import appConfig from './config/app/app.config';
-import { AppController } from './app.controller';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+
+import { configs } from './config';
+import { SharedClientsModule } from './shared/microservices/clients.module';
+
+import { JwtGuard } from './common/guards/jwt.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
+import { ThrottlerGuard } from './common/guards/throttler.guard';
+
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+
+import { AuthModule } from './modules/auth/auth.module';
+import { UserModule } from './modules/user/user.module';
+import { ProductModule } from './modules/product/product.module';
+import { CategoryModule } from './modules/category/category.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { CartModule } from './modules/cart/cart.module';
+import { OrderModule } from './modules/order/order.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
+import { CouponModule } from './modules/coupon/coupon.module';
+import { ReviewModule } from './modules/review/review.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig],
+      load: configs,
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100,
-    }]),
-    ClientsModule.registerAsync([
-      {
-        name: 'AUTH_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.authServiceTcpHost'),
-            port: configService.get<number>('app.authServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'USER_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.userServiceTcpHost'),
-            port: configService.get<number>('app.userServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'PRODUCT_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.productServiceTcpHost'),
-            port: configService.get<number>('app.productServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'INVENTORY_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.inventoryServiceTcpHost'),
-            port: configService.get<number>('app.inventoryServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'CART_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.cartServiceTcpHost'),
-            port: configService.get<number>('app.cartServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'ORDER_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.orderServiceTcpHost'),
-            port: configService.get<number>('app.orderServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'PAYMENT_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.paymentServiceTcpHost'),
-            port: configService.get<number>('app.paymentServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'SHIPPING_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.shippingServiceTcpHost'),
-            port: configService.get<number>('app.shippingServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'PROMOTION_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.promotionServiceTcpHost'),
-            port: configService.get<number>('app.promotionServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-      {
-        name: 'REVIEW_SERVICE',
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('app.reviewServiceTcpHost'),
-            port: configService.get<number>('app.reviewServiceTcpPort'),
-          },
-        }),
-        inject: [ConfigService],
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: (configService.get<number>('throttler.ttl') || 60) * 1000,
+          limit: configService.get<number>('throttler.limit') || 100,
+        },
+      ],
+      inject: [ConfigService],
+    }),
+    SharedClientsModule,
+    AuthModule,
+    UserModule,
+    ProductModule,
+    CategoryModule,
+    InventoryModule,
+    CartModule,
+    OrderModule,
+    PaymentModule,
+    ShippingModule,
+    CouponModule,
+    ReviewModule,
+    NotificationModule,
+    HealthModule,
   ],
-  controllers: [AppController],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeoutInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+  ],
 })
 export class AppModule {}

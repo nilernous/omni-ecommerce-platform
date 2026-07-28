@@ -1,36 +1,81 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { OmniLogger } from '@omnicommerce/logger';
-import proxy from 'express-http-proxy';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: new OmniLogger(),
-  });
+  const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
 
-  app.enableCors();
-  app.setGlobalPrefix('api/v1');
+  // Security Headers
+  app.use(helmet());
 
-  // Proxy routing map for microservices loaded via Nest Config
-  const expressApp = app.getHttpAdapter().getInstance();
+  // CORS Configuration
+  const corsOrigin = configService.get<string>('cors.origin') || '*';
+  app.enableCors({
+    origin: corsOrigin === '*' ? true : corsOrigin,
+    methods: configService.get<string[]>('cors.methods') || [
+      'GET',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE',
+      'OPTIONS',
+    ],
+    allowedHeaders: configService.get<string[]>('cors.allowedHeaders') || [
+      'Content-Type',
+      'Authorization',
+      'x-correlation-id',
+    ],
+    credentials: configService.get<boolean>('cors.credentials') || false,
+  });
 
-  expressApp.use('/api/v1/auth', proxy(configService.get<string>('app.authServiceUrl') || 'http://localhost:3001'));
-  expressApp.use('/api/v1/users', proxy(configService.get<string>('app.userServiceUrl') || 'http://localhost:3002'));
-  expressApp.use('/api/v1/products', proxy(configService.get<string>('app.productServiceUrl') || 'http://localhost:3003'));
-  expressApp.use('/api/v1/inventory', proxy(configService.get<string>('app.inventoryServiceUrl') || 'http://localhost:3004'));
-  expressApp.use('/api/v1/cart', proxy(configService.get<string>('app.cartServiceUrl') || 'http://localhost:3005'));
-  expressApp.use('/api/v1/orders', proxy(configService.get<string>('app.orderServiceUrl') || 'http://localhost:3006'));
-  expressApp.use('/api/v1/payments', proxy(configService.get<string>('app.paymentServiceUrl') || 'http://localhost:3007'));
-  expressApp.use('/api/v1/shipping', proxy(configService.get<string>('app.shippingServiceUrl') || 'http://localhost:3008'));
-  expressApp.use('/api/v1/promotions', proxy(configService.get<string>('app.promotionServiceUrl') || 'http://localhost:3009'));
-  expressApp.use('/api/v1/reviews', proxy(configService.get<string>('app.reviewServiceUrl') || 'http://localhost:3010'));
+  // Global Prefix
+  const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
+  app.setGlobalPrefix(apiPrefix);
+
+  // Global Validation Pipe
+  const validationOptions = configService.get('validation');
+  app.useGlobalPipes(new ValidationPipe(validationOptions));
+
+  // Swagger Documentation Setup
+  const isSwaggerEnabled = configService.get<boolean>('swagger.enabled') !== false;
+  if (isSwaggerEnabled) {
+    const swaggerTitle = configService.get<string>('swagger.title') || 'OmniCommerce API Gateway';
+    const swaggerDescription =
+      configService.get<string>('swagger.description') ||
+      'Centralized Edge API Gateway REST Endpoints';
+    const swaggerVersion = configService.get<string>('swagger.version') || '1.0.0';
+    const swaggerPath = configService.get<string>('swagger.path') || 'docs';
+
+    const swaggerOptions = new DocumentBuilder()
+      .setTitle(swaggerTitle)
+      .setDescription(swaggerDescription)
+      .setVersion(swaggerVersion)
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT Access Token',
+          in: 'header',
+        },
+        'JWT-auth',
+      )
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerOptions);
+    SwaggerModule.setup(swaggerPath, app, document);
+  }
 
   const port = configService.get<number>('app.port') || 3000;
   await app.listen(port);
-  console.log(`🚀 API Gateway running on port ${port}`);
+  console.log(`🚀 API Gateway is running on port ${port}`);
+  console.log(`📚 OpenAPI Docs available at http://localhost:${port}/docs`);
 }
 
 bootstrap();
