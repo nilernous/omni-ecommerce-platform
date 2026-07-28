@@ -139,58 +139,38 @@ No service may modify another service's domain model.
 
 ### Feature-First Organization
 
-The project structure is organized around **business features (bounded contexts)** rather than technical layers.
+The project structure is organized around **business features (bounded contexts)** inside `src/modules/`.
 
 Example:
 
 ```text
-src/
-
-product/
+src/modules/
 
 order/
 
 payment/
 
-customer/
-```
-
-instead of:
-
-```text
-src/
-
-controllers/
-
-services/
-
-repositories/
-
-entities/
+inventory/
 ```
 
 This organization improves scalability and domain ownership.
 
 ---
 
-### Layered Architecture
+### Layered Module Architecture
 
-Each feature follows the same internal architecture.
+Each feature module encapsulates its own components.
 
 ```text
-Presentation
-
-↓
-
-Application
-
-↓
-
-Domain
-
-↓
-
-Infrastructure
+controllers/
+dto/
+entities/
+repositories/
+services/
+validators/
+mappers/
+interfaces/
+types/
 ```
 
 Every layer has a clearly defined responsibility.
@@ -1054,54 +1034,37 @@ Every backend service follows the same high-level architecture.
 
 ```text
                     ┌───────────────────────────────┐
-                    │        Presentation           │
+                    │          Controllers          │
                     │-------------------------------│
-                    │ REST Controllers              │
-                    │ gRPC Controllers              │
-                    │ Presenters                    │
+                    │ RPC Controller                │
+                    │ Event Controller              │
                     └───────────────┬───────────────┘
                                     │
                                     ▼
                     ┌───────────────────────────────┐
-                    │        Application            │
+                    │     Services & DTOs           │
                     │-------------------------------│
-                    │ Use Cases                     │
-                    │ Application Services          │
-                    │ DTOs                          │
-                    │ Mappers                       │
+                    │ Business Services             │
+                    │ Requests, Responses, Events DTO│
+                    │ Validators & Mappers          │
                     └───────────────┬───────────────┘
                                     │
                                     ▼
                     ┌───────────────────────────────┐
-                    │           Domain             │
+                    │     Repositories & Entities   │
                     │-------------------------------│
-                    │ Entities                      │
-                    │ Value Objects                 │
-                    │ Domain Services               │
-                    │ Repository Interfaces         │
-                    │ Domain Events                 │
-                    └───────────────┬───────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │       Infrastructure          │
-                    │-------------------------------│
-                    │ Prisma                        │
-                    │ Repository Implementations    │
-                    │ gRPC Clients                  │
-                    │ RabbitMQ                      │
-                    │ Redis                         │
-                    │ MinIO / Cloudflare R2         │
+                    │ Domain Entities               │
+                    │ Module Repositories           │
+                    │ Shared Services (Prisma, Redis│
+                    │ Logger, Health, Validation)   │
                     └───────────────────────────────┘
 ```
 
-The Presentation layer coordinates incoming requests.
+The Controllers layer handles incoming gRPC calls and RabbitMQ events.
 
-The Application layer orchestrates business workflows.
+The Services and DTOs layer orchestrates business workflows, payload validation, and object mapping.
 
-The Domain layer contains enterprise business rules.
-
-The Infrastructure layer integrates external technologies and platform services.
+The Repositories and Entities layer manages domain models and persistence interactions via shared platform adapters (Prisma, Redis, etc.).
 
 ---
 
@@ -1109,12 +1072,13 @@ The Infrastructure layer integrates external technologies and platform services.
 
 A backend service is considered compliant with the OmniCommerce Service Blueprint if it satisfies all of the following requirements.
 
-- Organizes source code using the Feature-First approach.
-- Implements the prescribed four-layer architecture.
-- Maintains strict dependency direction toward the Domain layer.
-- Owns its business capability and persistent data.
-- Exposes communication only through approved contracts.
-- Implements standardized observability and security capabilities.
+- Organizes source code using the Feature-First approach under `src/modules/`.
+- Implements standard module components (`controllers/`, `dto/`, `entities/`, `repositories/`, `services/`, `validators/`, `mappers/`, `interfaces/`, `types/`).
+- Shared capabilities (`prisma`, `logger`, `redis`, `validation`, `health`) reside in `src/shared/`.
+- Centralized configuration resides in `src/config/`.
+- Owns its business capability and persistent data exclusively.
+- Exposes communication only through approved contracts (gRPC & RabbitMQ events).
+- Implements standardized observability, health endpoints, and security capabilities.
 - Remains independently deployable and independently scalable.
 
 Compliance with this blueprint is mandatory for every backend microservice developed within the OmniCommerce platform.
@@ -1128,44 +1092,16 @@ Compliance with this blueprint is mandatory for every backend microservice devel
 Below is the standard, authoritative directory tree that must be followed by every backend microservice within the OmniCommerce platform.
 
 ```text
-service-name/
-│
-├── docs/
-│   ├── adr/
-│   ├── api/
-│   ├── architecture/
-│   ├── deployment/
-│   ├── diagrams/
-│   └── README.md
-│
-├── prisma/
-│   ├── migrations/
-│   ├── schema.prisma
-│   ├── seed.ts
-│   └── README.md
-│
-├── proto/
-│   ├── service.proto
-│   ├── common.proto
-│   └── health.proto
-│
-├── scripts/
-│   ├── build.sh
-│   ├── deploy.sh
-│   ├── migrate.sh
-│   ├── rollback.sh
-│   └── seed.sh
+<service-name>-service/
 │
 ├── src/
 │   │
-│   ├── bootstrap/
-│   │   ├── cors.bootstrap.ts
-│   │   ├── grpc.bootstrap.ts
-│   │   ├── helmet.bootstrap.ts
-│   │   ├── logger.bootstrap.ts
-│   │   ├── pipes.bootstrap.ts
-│   │   ├── swagger.bootstrap.ts
-│   │   ├── versioning.bootstrap.ts
+│   ├── config/
+│   │   ├── app.config.ts
+│   │   ├── database.config.ts
+│   │   ├── rabbitmq.config.ts
+│   │   ├── redis.config.ts
+│   │   ├── validation.config.ts
 │   │   └── index.ts
 │   │
 │   ├── common/
@@ -1175,504 +1111,226 @@ service-name/
 │   │   ├── dto/
 │   │   ├── enums/
 │   │   ├── exceptions/
-│   │   │   ├── filters/
-│   │   │   ├── handlers/
-│   │   │   └── index.ts
-│   │   │
+│   │   ├── filters/
+│   │   │   ├── rpc-exception.filter.ts
+│   │   │   └── all-exception.filter.ts
 │   │   ├── guards/
-│   │   │   ├── api-key.guard.ts
-│   │   │   ├── jwt-auth.guard.ts
-│   │   │   ├── permissions.guard.ts
-│   │   │   ├── roles.guard.ts
-│   │   │   └── index.ts
-│   │   │
 │   │   ├── interceptors/
-│   │   │   ├── cache.interceptor.ts
-│   │   │   ├── logging.interceptor.ts
-│   │   │   ├── response.interceptor.ts
-│   │   │   ├── timeout.interceptor.ts
-│   │   │   ├── transform.interceptor.ts
-│   │   │   └── index.ts
-│   │   │
 │   │   ├── middleware/
 │   │   ├── pipes/
-│   │   ├── serializers/
-│   │   ├── transformers/
-│   │   ├── validators/
 │   │   ├── interfaces/
 │   │   ├── types/
-│   │   ├── helpers/
-│   │   ├── utils/
-│   │   └── index.ts
-│   │
-│   ├── config/
-│   │   ├── app/
-│   │   ├── auth/
-│   │   ├── cache/
-│   │   ├── database/
-│   │   ├── grpc/
-│   │   ├── logger/
-│   │   ├── messaging/
-│   │   ├── storage/
-│   │   ├── swagger/
-│   │   ├── throttler/
-│   │   ├── validation/
-│   │   └── index.ts
+│   │   └── utils/
 │   │
 │   ├── shared/
-│   │   │
-│   │   ├── auth/
-│   │   │   ├── jwt/
-│   │   │   ├── strategies/
-│   │   │   ├── acl/
-│   │   │   └── policies/
-│   │   │
-│   │   ├── cache/
-│   │   │   └── redis/
-│   │   │
-│   │   ├── crypto/
-│   │   │
-│   │   ├── database/
-│   │   │   ├── prisma/
-│   │   │   └── transaction/
-│   │   │
-│   │   ├── events/
-│   │   │
-│   │   ├── grpc/
-│   │   │   ├── clients/
-│   │   │   └── servers/
-│   │   │
+│   │   ├── prisma/
 │   │   ├── logger/
-│   │   │   └── pino/
-│   │   │
-│   │   ├── mail/
-│   │   │
-│   │   ├── messaging/
-│   │   │   ├── rabbitmq/
-│   │   │   └── publishers/
-│   │   │
-│   │   ├── monitoring/
-│   │   │   ├── health/
-│   │   │   ├── metrics/
-│   │   │   └── tracing/
-│   │   │
-│   │   ├── pagination/
-│   │   ├── scheduler/
-│   │   ├── security/
-│   │   ├── storage/
-│   │   │   ├── minio/
-│   │   │   └── r2/
-│   │   │
-│   │   └── validation/
+│   │   ├── redis/
+│   │   ├── validation/
+│   │   └── health/
 │   │
 │   ├── modules/
 │   │   │
-│   │   └── [module-name]/
-│   │       │
-│   │       ├── presentation/
-│   │       │   ├── controllers/
-│   │       │   ├── grpc/
-│   │       │   ├── presenters/
-│   │       │   ├── requests/
-│   │       │   ├── responses/
-│   │       │   └── swagger/
-│   │       │
-│   │       ├── application/
-│   │       │   ├── dto/
-│   │       │   ├── interfaces/
-│   │       │   ├── mappers/
-│   │       │   ├── ports/
-│   │       │   ├── services/
-│   │       │   └── use-cases/
-│   │       │       ├── commands/
-│   │       │       └── queries/
-│   │       │
-│   │       ├── domain/
-│   │       │   ├── aggregates/
-│   │       │   ├── constants/
-│   │       │   ├── entities/
-│   │       │   ├── events/
-│   │       │   ├── exceptions/
-│   │       │   ├── factories/
-│   │       │   ├── repositories/
-│   │       │   ├── services/
-│   │       │   ├── specifications/
-│   │       │   └── value-objects/
-│   │       │
-│   │       ├── infrastructure/
-│   │       │   ├── cache/
-│   │       │   ├── clients/
-│   │       │   │   ├── grpc/
-│   │       │   │   ├── http/
-│   │       │   │   └── third-party/
-│   │       │   │
-│   │       │   ├── messaging/
-│   │       │   ├── persistence/
-│   │       │   │   ├── mappers/
-│   │       │   │   ├── prisma/
-│   │       │   │   └── repositories/
-│   │       │   │
-│   │       │   ├── providers/
-│   │       │   ├── scheduler/
-│   │       │   └── storage/
-│   │       │
-│   │       └── [module-name].module.ts
-│   │
-│   ├── health/
-│   │   ├── health.controller.ts
-│   │   ├── health.module.ts
-│   │   ├── liveness.indicator.ts
-│   │   ├── readiness.indicator.ts
-│   │   └── metrics.controller.ts
+│   │   ├── <module-name>/
+│   │   │   │
+│   │   │   ├── controllers/
+│   │   │   │   ├── <module-name>.rpc.controller.ts
+│   │   │   │   └── <module-name>.event.controller.ts
+│   │   │   │
+│   │   │   ├── dto/
+│   │   │   │   ├── requests/
+│   │   │   │   ├── responses/
+│   │   │   │   └── events/
+│   │   │   │
+│   │   │   ├── entities/
+│   │   │   ├── repositories/
+│   │   │   ├── services/
+│   │   │   ├── validators/
+│   │   │   ├── mappers/
+│   │   │   ├── interfaces/
+│   │   │   ├── types/
+│   │   │   └── <module-name>.module.ts
+│   │   │
+│   │   ├── payment/
+│   │   ├── inventory/
+│   │   └── ...
 │   │
 │   ├── app.module.ts
 │   └── main.ts
 │
-├── test/
-│   ├── e2e/
-│   ├── integration/
-│   ├── unit/
-│   ├── fixtures/
-│   └── helpers/
+├── prisma/
+│   ├── migrations/
+│   └── schema.prisma
 │
+├── test/
 ├── .env
-├── .env.example
-├── .gitignore
-├── .prettierrc
-├── eslint.config.mjs
-├── nest-cli.json
-├── package.json
-├── pnpm-lock.yaml
-├── README.md
-└── tsconfig.json
+└── package.json
 ```
 
 ---
 
-## 6.2 Root Configuration Files
+## 6.2 Root Configuration Files & Directories
 
-Every backend service contains standardized configuration files at the root directory to guarantee build, linting, formatting, and runtime consistency across environments.
+Every backend service contains standardized configuration files and top-level directories to guarantee build, linting, formatting, testing, and database schema management.
 
-| File Name | Purpose & Description |
-|-----------|-----------------------|
-| `.env` | Local development environment configuration containing secret keys, database credentials, and service URLs (git-ignored). |
-| `.env.example` | Template file documenting all required environment variables with non-sensitive defaults or dummy values. |
-| `.gitignore` | Defines files and folders excluded from version control (node_modules, dist, coverage, .env). |
-| `.prettierrc` | Formatting configurations ensuring consistent code style across all team members. |
-| `eslint.config.mjs` | Modern ESLint configuration file enforcing static analysis, import rules, and TypeScript coding conventions. |
-| `nest-cli.json` | NestJS CLI configuration defining source root, compiler options, and asset inclusions. |
-| `package.json` | Project metadata, scripts (build, start, test, lint), and dependencies management. |
-| `pnpm-lock.yaml` | Lockfile ensuring deterministic, reproducible dependency installations via pnpm. |
-| `README.md` | Service documentation containing setup instructions, architecture overview, API links, and run commands. |
-| `tsconfig.json` | TypeScript compiler configuration including strict type-checking flags, path aliases (`@common/*`, `@shared/*`), and target specs. |
-
----
-
-## 6.3 Top-Level Non-Source Directories
-
-### `docs/`
-Contains technical documentation specific to the microservice.
-- `adr/`: Architecture Decision Records documenting key design decisions.
-- `api/`: OpenAPI / Swagger specs, gRPC protocol definitions, and Postman collections.
-- `architecture/`: High-level diagrams, layer breakdowns, and data flow specifications.
-- `deployment/`: Helm charts, Docker compose files, Kubernetes manifests, and CI/CD pipelines.
-- `diagrams/`: Source files for Mermaid, PlantUML, or Draw.io diagrams.
-- `README.md`: Index of documentation available for this service.
-
-### `prisma/`
-Manages object-relational mapping (ORM) schema and database migrations for PostgreSQL.
-- `migrations/`: Sequential SQL migration files generated by Prisma.
-- `schema.prisma`: Authoritative database schema definition including models, relations, indexes, and enums.
-- `seed.ts`: Script for populating the database with initial reference data or test data.
-- `README.md`: Guide for running Prisma commands and managing database schema updates.
-
-### `proto/`
-Holds Protocol Buffers definitions for high-performance inter-service gRPC communication.
-- `service.proto`: gRPC service interface definitions (methods, request/response messages).
-- `common.proto`: Shared protobuf types (pagination, error payloads, timestamps).
-- `health.proto`: Standard gRPC Health Checking Protocol buffer contract.
-
-### `scripts/`
-Executable shell scripts for automating development and operational workflows.
-- `build.sh`: Builds the TypeScript code and compiles protobuf definitions.
-- `deploy.sh`: Builds container images and triggers deployment to Kubernetes.
-- `migrate.sh`: Executes pending Prisma database migrations.
-- `rollback.sh`: Rolls back database migrations or deployment releases in emergency scenarios.
-- `seed.sh`: Runs the database seed script cleanly across environments.
-
-### `test/`
-Structured test suites isolating unit, integration, and end-to-end testing concerns.
-- `e2e/`: End-to-end tests validating full HTTP/gRPC endpoints with running databases.
-- `integration/`: Tests verifying interactions between services, repositories, and external adapters.
-- `unit/`: Unit tests targeting domain logic, aggregates, use cases, and utility functions.
-- `fixtures/`: Static test data, mock database entities, and sample payloads.
-- `helpers/`: Utilities for seeding test DBs, generating JWT tokens, and managing test servers.
+| Item Name | Type | Purpose & Description |
+|-----------|------|-----------------------|
+| `src/` | Folder | Main application source code. |
+| `prisma/` | Folder | PostgreSQL database schema (`schema.prisma`) and SQL migration scripts (`migrations/`). |
+| `test/` | Folder | End-to-end (E2E), integration, and unit test suites. |
+| `.env` | File | Local environment settings containing database credentials, secret keys, and port numbers (git-ignored). |
+| `package.json` | File | NPM project manifest, script tasks, and dependency definitions. |
 
 ---
 
 # 7. Source Code Structure (`src/`)
 
-Source code inside `src/` is strictly structured to support bootstrap initializations, cross-cutting framework concerns, shared platform capabilities, health telemetry, and feature-first business modules.
+Source code inside `src/` is organized into `config/`, `common/`, `shared/`, `modules/`, and root files.
 
 ---
 
-## 7.1 Bootstrap Directory (`src/bootstrap/`)
+## 7.1 Configuration Directory (`src/config/`)
 
-The `bootstrap/` directory contains modular initializers responsible for configuring framework capabilities during service startup in `main.ts`.
+Centralized configuration functions returning strongly-typed configuration objects.
 
 | File | Purpose |
 |------|---------|
-| `cors.bootstrap.ts` | Configures Cross-Origin Resource Sharing (CORS) rules, allowed origins, headers, and credentials. |
-| `grpc.bootstrap.ts` | Configures gRPC microservice transport options, proto paths, and package names. |
-| `helmet.bootstrap.ts` | Applies security HTTP headers using Helmet middleware. |
-| `logger.bootstrap.ts` | Initializes Pino structured logger with custom formatters and log levels. |
-| `pipes.bootstrap.ts` | Registers global validation pipes with custom class-validator options. |
-| `swagger.bootstrap.ts` | Configures OpenAPI / Swagger documentation endpoints and authorization schemes. |
-| `versioning.bootstrap.ts` | Enables API URI/Header versioning standards (e.g., `/api/v1/...`). |
-| `index.ts` | Barrel export aggregating all bootstrap functions for single-line execution in `main.ts`. |
+| `app.config.ts` | Application parameters (port, environment, app name). |
+| `database.config.ts` | Database connection options, pool limits, and migration settings. |
+| `rabbitmq.config.ts` | RabbitMQ connection URL, exchange names, queues, and RPC settings. |
+| `redis.config.ts` | Redis host, port, credentials, TTLs, and cache prefixes. |
+| `validation.config.ts` | Configuration options for global ValidationPipes. |
+| `index.ts` | Barrel file exporting all configuration modules. |
 
 ---
 
 ## 7.2 Common Directory (`src/common/`)
 
-The `common/` directory provides framework-level utilities, cross-cutting components, generic DTOs, and global filters/interceptors applicable across all modules.
+Framework-wide cross-cutting components and shared utilities.
 
-- `constants/`: Global system constants, error codes, and string tokens.
-- `decorators/`: Custom NestJS parameter/method decorators (e.g., `@CurrentUser()`, `@Public()`, `@Permissions()`).
-- `dto/`: Common request/response Data Transfer Objects (e.g., `PaginationQueryDto`, `ApiResponseDto`).
-- `enums/`: System-wide enums (e.g., `Environment`, `SortOrder`, `UserRole`).
-- `exceptions/`:
-  - `filters/`: Global exception filters converting domain/HTTP/gRPC exceptions into standard error payloads.
-  - `handlers/`: Specialty error handlers mapping custom exceptions to status codes.
-  - `index.ts`: Barrel export.
-- `guards/`:
-  - `api-key.guard.ts`: Guard enforcing API key verification for external webhooks/clients.
-  - `jwt-auth.guard.ts`: Guard validating JWT access tokens on protected routes.
-  - `permissions.guard.ts`: Guard enforcing fine-grained Permission-Based Access Control (PBAC).
-  - `roles.guard.ts`: Guard enforcing Role-Based Access Control (RBAC).
-  - `index.ts`: Barrel export.
-- `interceptors/`:
-  - `cache.interceptor.ts`: Caching interceptor for response memoization.
-  - `logging.interceptor.ts`: Access log interceptor logging request duration, status code, and trace ID.
-  - `response.interceptor.ts`: Interceptor wrapping HTTP responses in standard JSON wrappers.
-  - `timeout.interceptor.ts`: Interceptor setting strict request timeouts.
-  - `transform.interceptor.ts`: Interceptor transforming entity data models to response serializers.
-  - `index.ts`: Barrel export.
-- `middleware/`: HTTP middleware functions (request ID generation, raw body parsing).
-- `pipes/`: Generic NestJS validation and transformation pipes.
-- `serializers/`: Base entity serialization classes.
-- `transformers/`: Value transformers (string trimming, date parsing).
-- `validators/`: Custom class-validator constraint decorators.
-- `interfaces/`: Core TypeScript interfaces for requests, responses, and execution contexts.
-- `types/`: Common TypeScript utility types and type aliases.
-- `helpers/` & `utils/`: Generic helper functions (crypto hashing, date formatting, string manipulation).
-- `index.ts`: Public API export for the common module.
+- `constants/`: Global system constants and tokens.
+- `decorators/`: Custom NestJS decorators (`@CurrentUser()`, `@Public()`).
+- `dto/`: Common generic DTOs (pagination, error responses).
+- `enums/`: System-wide enums (`Environment`, `UserRole`).
+- `exceptions/`: Domain and system custom exceptions.
+- `filters/`:
+  - `rpc-exception.filter.ts`: Exception filter formatting RPC / gRPC exceptions.
+  - `all-exception.filter.ts`: Fallback exception filter for unhandled errors.
+- `guards/`: Security and authorization guards.
+- `interceptors/`: Logging, caching, response-transforming, and timeout interceptors.
+- `middleware/`: HTTP middleware functions.
+- `pipes/`: Request validation pipes.
+- `interfaces/` & `types/`: Common TypeScript interfaces and utility types.
+- `utils/`: Helper utilities (date, crypto, formatting).
 
 ---
 
-## 7.3 Configuration Directory (`src/config/`)
+## 7.3 Shared Directory (`src/shared/`)
 
-Centralized, strongly typed configuration modules powered by `@nestjs/config` and validated with `class-validator` / `zod`.
+Platform infrastructure wrappers and operational services reusable across feature modules.
 
-| Subfolder | Description |
-|-----------|-------------|
-| `app/` | General application settings (name, port, environment, debug mode). |
-| `auth/` | JWT secrets, token expiration times, and OAuth provider credentials. |
-| `cache/` | Redis host, port, password, TTL, and key prefix configurations. |
-| `database/` | Database URL, connection pool sizes, SSL settings, and migration flags. |
-| `grpc/` | gRPC server host, port, protobuf load options, and client target URLs. |
-| `logger/` | Pino logging level, pretty-print flag, and redaction keys. |
-| `messaging/` | RabbitMQ connection strings, exchange names, and dead-letter queues. |
-| `storage/` | MinIO / Cloudflare R2 bucket names, endpoints, access keys, and region. |
-| `swagger/` | Swagger documentation title, description, path, and security schemes. |
-| `throttler/` | Rate limiting TTL and limit caps. |
-| `validation/` | Configuration validation schema and options. |
-| `index.ts` | Export aggregating all configuration namespaces. |
+- `prisma/`: Prisma database client module and transactions.
+- `logger/`: Pino structured logging module.
+- `redis/`: Redis client wrapper for caching and locking.
+- `validation/`: Cross-cutting validation services.
+- `health/`: Health check indicators for DB, Redis, and RabbitMQ connectivity.
 
 ---
 
-## 7.4 Shared Infrastructure Directory (`src/shared/`)
+## 7.4 Root Files (`src/app.module.ts` & `src/main.ts`)
 
-The `shared/` directory contains reusable platform services, infrastructure adapters, and client libraries that are technical in nature and shared across business modules.
-
-- `auth/`: Shared authentication mechanics (`jwt/`, `strategies/` [JwtStrategy, LocalStrategy], `acl/`, `policies/`).
-- `cache/`: Caching infrastructure (`redis/` service wrapper and cluster client).
-- `crypto/`: Hashing, encryption, and decryption utilities (bcrypt, argon2, AES-GCM).
-- `database/`: Database client setup (`prisma/` PrismaService, connection management, `transaction/` unit-of-work helpers).
-- `events/`: Event bus abstractions and local event emitter bridge.
-- `grpc/`: gRPC transport setup (`clients/` gRPC client factories, `servers/` gRPC server setup).
-- `logger/`: Pino logger module registration and transport streams.
-- `mail/`: Email delivery providers (SMTP, SendGrid, SES).
-- `messaging/`: Broker integration (`rabbitmq/` ClientProxy / AmqpConnection, `publishers/` Outbox / Domain event publishers).
-- `monitoring/`: Telemetry infrastructure (`health/` checks, `metrics/` Prometheus counters/histograms, `tracing/` OpenTelemetry tracer).
-- `pagination/`: Standardized pagination calculation, metadata generators, and cursor handlers.
-- `scheduler/`: Cron job scheduling wrappers and distributed lock handling.
-- `security/`: Encryption, SAN validation, CSRF, and CORS helpers.
-- `storage/`: Object storage adapters (`minio/` client, `r2/` Cloudflare R2 client).
-- `validation/`: Cross-cutting validation wrappers and schema definitions.
-
----
-
-## 7.5 Health & Metrics Directory (`src/health/`)
-
-Implements operational health checking and Prometheus metrics scraping endpoints.
-
-- `health.controller.ts`: Endpoint `/health` responding with service status.
-- `health.module.ts`: Terminus health module registration.
-- `liveness.indicator.ts`: Liveness check indicator (verifying process status).
-- `readiness.indicator.ts`: Readiness check indicator (verifying PostgreSQL, Redis, RabbitMQ connectivity).
-- `metrics.controller.ts`: Endpoint `/metrics` exposing Prometheus telemetry data.
-
----
-
-## 7.6 Root Files (`src/app.module.ts` & `src/main.ts`)
-
-- `app.module.ts`: The root module of the NestJS application. It imports core configuration modules, shared infrastructure modules, health module, and all business feature modules.
-- `main.ts`: Application entry point. Executes bootstrap initializers (`src/bootstrap/`), starts HTTP and gRPC listeners, registers global interceptors/filters, and manages graceful shutdown signals (SIGTERM/SIGINT).
+- `app.module.ts`: Root module importing `ConfigModule`, `SharedModule` (Prisma, Logger, Redis, Validation, Health), and feature modules (`OrderModule`, etc.).
+- `main.ts`: Service entry point. Initializes gRPC microservice listeners, RabbitMQ event consumers, global pipes, filters, and interceptors.
 
 ---
 
 # 8. Feature Module Architecture (`src/modules/[module-name]/`)
 
-Every business capability inside `src/modules/` is structured as an isolated bounded context following **Clean Architecture** and **Domain-Driven Design (DDD)**.
-
-Taking `order` as the standard reference module (`src/modules/order/`), each module is divided into four distinct architectural layers.
+Every business capability inside `src/modules/` is structured as a feature module (e.g. `order`, `payment`, `inventory`).
 
 ```text
-src/modules/order/
-├── presentation/
-├── application/
-├── domain/
-├── infrastructure/
-└── order.module.ts
+src/modules/<module-name>/
+│
+├── controllers/
+│   ├── <module-name>.rpc.controller.ts
+│   └── <module-name>.event.controller.ts
+│
+├── dto/
+│   ├── requests/
+│   ├── responses/
+│   └── events/
+│
+├── entities/
+├── repositories/
+├── services/
+├── validators/
+├── mappers/
+├── interfaces/
+├── types/
+└── <module-name>.module.ts
 ```
 
 ---
 
-## 8.1 Presentation Layer (`presentation/`)
+## 8.1 Controllers (`controllers/`)
 
-The Presentation layer acts as the entry point for external requests. It converts incoming payloads into application command/query DTOs and formats application outputs for clients.
+Exposes transport interfaces for inter-service communication.
 
-```text
-presentation/
-├── controllers/       # REST API Controllers (@Controller, @Get, @Post)
-├── grpc/              # gRPC Controller / Handlers (@GrpcMethod)
-├── presenters/        # Data formatters translating domain/application responses for UI
-├── requests/          # HTTP Request DTOs with class-validator annotations
-├── responses/         # HTTP Response DTOs / Serializers
-└── swagger/           # Swagger API documentation decorators & response schemas
-```
-
-**Rules for Presentation Layer:**
-- Coordinates request parsing, authentication/authorization guard execution, and response formatting.
-- Must NOT contain any business logic or direct database access.
-- Delegates all business operations directly to Application Use Cases or Application Services.
+- `<module-name>.rpc.controller.ts`: Handles synchronous RPC / gRPC endpoints using `@GrpcMethod`.
+- `<module-name>.event.controller.ts`: Handles asynchronous RabbitMQ event subscriptions using `@EventPattern` / `@MessagePattern`.
 
 ---
 
-## 8.2 Application Layer (`application/`)
+## 8.2 DTOs (`dto/`)
 
-The Application layer orchestrates business use cases, manages workflow execution, controls transaction boundaries, and coordinates port implementations.
+Data Transfer Objects defining transport and message schemas:
 
-```text
-application/
-├── dto/               # Internal use case input/output data transfer objects
-├── interfaces/        # Interfaces for application-level services & handlers
-├── mappers/           # Data mappers converting presentation DTOs <-> Use Case DTOs
-├── ports/             # Secondary/Outbound interfaces (e.g., PaymentPort, NotificationPort)
-├── services/          # Application services orchestrating multi-step workflows
-└── use-cases/         # CQRS Use Case Handlers
-    ├── commands/      # Write operations (e.g., CreateOrderCommand, CancelOrderCommand)
-    └── queries/       # Read operations (e.g., GetOrderByIdQuery, ListOrdersQuery)
-```
-
-**Rules for Application Layer:**
-- Contains use case logic, CQRS commands/queries, and port contracts.
-- Depends ONLY on the Domain Layer.
-- Must NOT depend on concrete infrastructure components (Prisma, RabbitMQ, Redis). All infrastructure dependencies are referenced via Port interfaces.
+- `requests/`: Incoming RPC request payload schemas.
+- `responses/`: Outgoing RPC response schemas.
+- `events/`: Domain event payload schemas (published and consumed).
 
 ---
 
-## 8.3 Domain Layer (`domain/`)
+## 8.3 Entities (`entities/`)
 
-The Domain layer is the heart of the application. It encapsulates core business logic, domain models, business rules, invariants, and domain events.
-
-```text
-domain/
-├── aggregates/        # DDD Aggregate Roots managing boundary consistency (e.g., OrderAggregate)
-├── constants/         # Business constants and domain-specific codes
-├── entities/          # Domain Entities with unique identifiers and lifecycle logic
-├── events/            # Domain Events emitted on state change (e.g., OrderCreatedEvent)
-├── exceptions/        # Pure domain exceptions (e.g., InsufficientStockException)
-├── factories/         # Domain object creation factories for complex initializations
-├── repositories/      # Domain Repository Interfaces defining persistence contracts
-├── services/          # Domain Services for operations involving multiple entities
-├── specifications/    # Specification pattern classes for complex business validation
-└── value-objects/     # Immutable Value Objects (e.g., Money, OrderStatus, Address)
-```
-
-**Rules for Domain Layer:**
-- Pure TypeScript without any external framework or infrastructure dependencies (No NestJS, No Prisma, No TypeORM).
-- Enforces all business rules and domain invariants.
-- Dependencies ALWAYS point inward. The Domain layer has zero outer dependencies.
+Entities representing business data structures and domain rules.
 
 ---
 
-## 8.4 Infrastructure Layer (`infrastructure/`)
+## 8.4 Repositories (`repositories/`)
 
-The Infrastructure layer implements the outbound ports and repository interfaces defined by the Domain and Application layers. It bridges domain logic to databases, external services, caches, and message queues.
-
-```text
-infrastructure/
-├── cache/             # Redis cache adapters & store implementations
-├── clients/           # External client integrations
-│   ├── grpc/          # gRPC clients communicating with other microservices
-│   ├── http/          # HTTP REST clients (Axios/Fetch) calling external APIs
-│   └── third-party/   # Third-party SDK integrations (Stripe, PayPal, SendGrid)
-├── messaging/         # RabbitMQ publishers, consumer handlers, and message schemas
-├── persistence/       # Relational database persistence (Prisma)
-│   ├── mappers/       # Mappers transforming Prisma DB models <-> Domain Entities
-│   ├── prisma/        # Prisma service injection & entity extensions
-│   └── repositories/  # Repository implementations (e.g., PrismaOrderRepository)
-├── providers/         # Custom NestJS provider bindings linking ports to implementations
-├── scheduler/         # Cron job implementations and background task handlers
-└── storage/           # S3 / MinIO / R2 file storage implementations
-```
-
-**Rules for Infrastructure Layer:**
-- Implements interfaces defined in `domain/repositories/` and `application/ports/`.
-- Handles data mapping between database records and domain entities.
-- Isolates all technical complexities from core business logic.
+Data access layer encapsulating database queries and Prisma operations for the module.
 
 ---
 
-## 8.5 Feature Module Root (`[module-name].module.ts`)
+## 8.5 Services (`services/`)
 
-The module root file (e.g., `order.module.ts`) ties all four layers together using NestJS dependency injection mechanisms.
+Business services encapsulating business logic, domain workflows, and database transaction orchestration.
 
-```typescript
-@Module({
-  imports: [SharedModule, ConfigModule],
-  controllers: [OrderController, OrderGrpcController],
-  providers: [
-    // Use Cases
-    CreateOrderUseCase,
-    GetOrderQueryHandler,
-    // Repository Providers (Mapping Domain Interface -> Infrastructure Concrete)
-    {
-      provide: ORDER_REPOSITORY_TOKEN,
-      useClass: PrismaOrderRepository,
-    },
-    // Port Providers
-    {
-      provide: PAYMENT_PORT_TOKEN,
-      useClass: StripePaymentAdapter,
-    },
-  ],
-  exports: [ORDER_REPOSITORY_TOKEN],
-})
-export class OrderModule {}
-```
+---
+
+## 8.6 Validators (`validators/`)
+
+Custom domain validation rules and entity state checks.
+
+---
+
+## 8.7 Mappers (`mappers/`)
+
+Object mappers converting between database records, entities, and DTOs.
+
+---
+
+## 8.8 Interfaces & Types (`interfaces/` & `types/`)
+
+- `interfaces/`: Contracts for services and repositories.
+- `types/`: Utility types used within the module.
+
+---
+
+## 8.9 Module Declaration (`<module-name>.module.ts`)
+
+Wires together controllers, services, repositories, validators, and mappers into a NestJS module.
 
 ---
 
@@ -1684,74 +1342,57 @@ export class OrderModule {}
 
 ## 9.1 Request Execution Lifecycle
 
-Every incoming request passes through a standardized execution lifecycle managed by NestJS and the service architecture layers:
-
 ```text
-Client Request
+Incoming RPC Call / Event Message
      │
      ▼
-[Helmet & CORS Middleware]
+[Logging Interceptor]
      │
      ▼
-[Logging Interceptor (Start)]
+[Guards] ───────────── Fail ───► [RPC Exception Filter]
      │
      ▼
-[JWT / API Key Guard] ──── Fail ───► [401 / 403 Response Filter]
+[Validation Pipe] ───── Fail ───► [RPC Exception Filter]
      │
      ▼
-[Permissions / Roles Guard]
+[RPC / Event Controller]
      │
      ▼
-[Global Validation Pipe] ──── Fail ───► [400 Bad Request Filter]
+[Module Service]
      │
      ▼
-[Presentation Controller]
+[Validators & Mappers]
      │
      ▼
-[Application Use Case / Command Handler]
+[Repository (Prisma)] ◄─── Database Transaction
      │
      ▼
-[Domain Aggregate / Domain Service]
+[Event Publisher (RabbitMQ)]
      │
      ▼
-[Infrastructure Repository (Prisma)] ◄─── Transaction Boundary
-     │
-     ▼
-[Domain Event Publisher (RabbitMQ)]
-     │
-     ▼
-[Response Interceptor (Format Output)]
-     │
-     ▼
-Client Response
+RPC Response / Message Ack
 ```
 
 ---
 
-## 9.2 Strict Layering Rules & Dependency Constraints
+## 9.2 Dependency & Layering Rules
 
-To maintain architectural integrity and prevent codebase rot, all developers and automated tools MUST respect the following dependency rules:
-
-1. **Domain Layer Independence**: The Domain layer MUST NOT import anything from `presentation`, `application`, `infrastructure`, or framework packages like `@nestjs/*` or `@prisma/client`.
-2. **Application Layer Dependencies**: The Application layer can import from `domain`, but MUST NOT import from `presentation` or concrete `infrastructure` repositories/clients.
-3. **Presentation Layer Dependencies**: The Presentation layer can import from `application` (DTOs, Use Cases) and `common`, but MUST NOT interact with the database directly.
-4. **Infrastructure Layer Integration**: The Infrastructure layer implements interfaces from `domain` and `application`. It can import `@prisma/client`, Redis, RabbitMQ, and external SDKs.
-5. **No Cross-Module Domain Leaks**: A feature module MUST NOT directly import internal classes from another feature module. Cross-module interactions occur strictly via published gRPC contracts, domain events, or public application ports.
+1. **Feature Module Structure**: Each feature module inside `src/modules/` encapsulates its own business domain components (`controllers`, `dto`, `entities`, `repositories`, `services`, `validators`, `mappers`, `interfaces`, `types`).
+2. **Shared Services**: Reusable infrastructure (`prisma`, `logger`, `redis`, `validation`, `health`) must be imported from `@shared/*`.
+3. **Common Utilities**: Global guards, filters, interceptors, and helpers must be imported from `@common/*`.
+4. **Configuration Access**: Access environment and service configurations via `src/config/`.
+5. **Decoupled Interactions**: Cross-service interaction must occur via gRPC or RabbitMQ domain events.
 
 ---
 
 # 10. Summary & Checklist for New Services
 
-When creating a new backend microservice in OmniCommerce, ensure compliance with this checklist:
+When creating or maintaining a backend microservice in OmniCommerce:
 
-- [ ] Directory structure strictly matches the blueprint tree defined in **Section 6.1**.
-- [ ] Root configuration files (`tsconfig.json`, `.prettierrc`, `eslint.config.mjs`, `nest-cli.json`) are copied and configured.
-- [ ] `prisma/schema.prisma` is initialized with service-specific models.
-- [ ] `proto/` contains the service gRPC contracts.
-- [ ] `src/bootstrap/` contains all framework initializers.
-- [ ] `src/health/` exposes `/health` and `/metrics`.
-- [ ] Business logic inside `src/modules/` follows the 4-layer DDD pattern (Presentation, Application, Domain, Infrastructure).
-- [ ] Domain Entities have zero dependencies on NestJS or Prisma.
-- [ ] Unit tests cover domain logic in `test/unit/` and integration tests cover repositories in `test/integration/`.
-
-
+- [ ] Folder structure matches the standard blueprint tree in **Section 6.1**.
+- [ ] Configurations exist in `src/config/` (`app.config.ts`, `database.config.ts`, `rabbitmq.config.ts`, `redis.config.ts`, `validation.config.ts`, `index.ts`).
+- [ ] Global exception filters (`rpc-exception.filter.ts`, `all-exception.filter.ts`), guards, and interceptors reside in `src/common/`.
+- [ ] Infrastructure services (`prisma`, `logger`, `redis`, `validation`, `health`) reside in `src/shared/`.
+- [ ] Feature modules in `src/modules/` implement `controllers/`, `dto/`, `entities/`, `repositories/`, `services/`, `validators/`, `mappers/`, `interfaces/`, `types/`, and `<module-name>.module.ts`.
+- [ ] Controllers implement `<module-name>.rpc.controller.ts` and `<module-name>.event.controller.ts`.
+- [ ] Prisma schema and migrations reside in `prisma/`.

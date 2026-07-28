@@ -2,17 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
-import { createLogger, setupCors, setupGlobalPipes } from './bootstrap';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: createLogger(),
-  });
+  const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-
-  setupCors(app);
-  setupGlobalPipes(app);
 
   const microservicePort = configService.get<number>('app.microservicePort');
   if (microservicePort) {
@@ -28,7 +22,7 @@ async function bootstrap() {
 
   const port = configService.get<number>('app.port') || 3009;
   await app.listen(port);
-  console.log(`🏷️ Promotion Service running on HTTP port ${port} and Microservice TCP port ${microservicePort}`);
+  console.log(`🎟️ Promotion Service running on HTTP port ${port} and Microservice TCP port ${microservicePort}`);
 }
 
 bootstrap();

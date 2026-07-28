@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '@omnicommerce/database';
-import { ProductController } from './presentation/controllers/product.controller';
-import { ProductService } from './application/services/product.service';
+import { ProductRpcController } from './controllers/product.rpc.controller';
+import { ProductEventController } from './controllers/product.event.controller';
+import { ProductService } from './services/product.service';
 
 @Module({
-  controllers: [ProductController],
+  controllers: [ProductRpcController, ProductEventController],
   providers: [ProductService, PrismaService],
+  exports: [ProductService],
 })
 export class ProductModule {}

@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '@omnicommerce/database';
-import { JwtStrategy } from '@omnicommerce/auth';
-import { UserController } from './presentation/controllers/user.controller';
-import { UserService } from './application/services/user.service';
+import { UserRpcController } from './controllers/user.rpc.controller';
+import { UserEventController } from './controllers/user.event.controller';
+import { UserService } from './services/user.service';
 
 @Module({
-  controllers: [UserController],
-  providers: [UserService, PrismaService, JwtStrategy],
+  controllers: [UserRpcController, UserEventController],
+  providers: [UserService, PrismaService],
+  exports: [UserService],
 })
 export class UserModule {}

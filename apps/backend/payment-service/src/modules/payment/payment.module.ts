@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '@omnicommerce/database';
-import { JwtStrategy } from '@omnicommerce/auth';
-import { PaymentController } from './presentation/controllers/payment.controller';
-import { PaymentService } from './application/services/payment.service';
+import { PaymentRpcController } from './controllers/payment.rpc.controller';
+import { PaymentEventController } from './controllers/payment.event.controller';
+import { PaymentService } from './services/payment.service';
 
 @Module({
-  controllers: [PaymentController],
-  providers: [PaymentService, PrismaService, JwtStrategy],
+  controllers: [PaymentRpcController, PaymentEventController],
+  providers: [PaymentService, PrismaService],
+  exports: [PaymentService],
 })
 export class PaymentModule {}

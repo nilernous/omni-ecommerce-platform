@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { JwtStrategy } from '@omnicommerce/auth';
-import { CartController } from './presentation/controllers/cart.controller';
-import { CartService } from './application/services/cart.service';
+import { CartRpcController } from './controllers/cart.rpc.controller';
+import { CartEventController } from './controllers/cart.event.controller';
+import { CartService } from './services/cart.service';
 
 @Module({
-  controllers: [CartController],
-  providers: [CartService, JwtStrategy],
+  controllers: [CartRpcController, CartEventController],
+  providers: [CartService],
+  exports: [CartService],
 })
 export class CartModule {}
