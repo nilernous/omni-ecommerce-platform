@@ -1,14 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { OmniLogger } from '@omnicommerce/logger';
+import { createLogger, setupCors, setupGlobalPipes } from './bootstrap';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: new OmniLogger(),
+    logger: createLogger(),
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  setupCors(app);
+  setupGlobalPipes(app);
 
   const port = process.env.PORT || 3007;
   await app.listen(port);
