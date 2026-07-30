@@ -1,0 +1,61 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("PROMOTION_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Coupon {
+  id                String       @id @default(uuid()) @db.Uuid
+  code              String       @unique @db.VarChar(50)
+  discountType      DiscountType @map("discount_type")
+  discountValue     Decimal      @map("discount_value") @db.Decimal(12, 4)
+  maxDiscountAmount Decimal?     @map("max_discount_amount") @db.Decimal(12, 4)
+  minSubtotal       Decimal      @default(0.00) @map("min_subtotal") @db.Decimal(12, 4)
+  startDate         DateTime     @map("start_date") @db.Timestamptz(6)
+  endDate           DateTime     @map("end_date") @db.Timestamptz(6)
+  totalUsageLimit   Int          @map("total_usage_limit")
+  perUserLimit      Int          @default(1) @map("per_user_limit")
+  currentUsageCount Int          @default(0) @map("current_usage_count")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id         String   @id @default(uuid()) @db.Uuid
+  couponId   String   @map("coupon_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  orderId    String   @map("order_id") @db.Uuid
+  redeemedAt DateTime @default(now()) @map("redeemed_at") @db.Timestamptz(6)
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+
+  @@unique([couponId, userId, orderId], name: "uq_coupon_redemption")
+  @@map("coupon_redemptions")
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(64)
+  eventType     String    @map("event_type") @db.VarChar(128)
+  payloadJson   Json      @map("payload_json") @db.JsonB
+  status        String    @default("PENDING") @db.VarChar(32)
+  retryCount    Int       @default(0) @map("retry_count")
+  lastError     String?   @map("last_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], name: "idx_outbox_events_status_created")
+  @@map("outbox_events")
+}
