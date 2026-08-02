@@ -12,4 +12,11 @@ export class CartEventController {
       await this.cartService.clearCart(data.userId);
     }
   }
+
+  @EventPattern('order.placed')
+  async handleOrderPlaced(@Payload() data: { userId: string }) {
+    if (data?.userId) {
+      await this.cartService.clearCart(data.userId);
+    }
+  }
 }

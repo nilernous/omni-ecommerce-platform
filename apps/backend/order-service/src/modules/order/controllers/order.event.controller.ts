@@ -9,7 +9,7 @@ export class OrderEventController {
   @EventPattern('payment.succeeded')
   async handlePaymentSucceeded(@Payload() data: { orderId: string }) {
     if (data?.orderId) {
-      await this.orderService.updateOrderStatus(data.orderId, 'PROCESSING' as any);
+      await this.orderService.markPaymentCompleted(data.orderId);
     }
   }
 }

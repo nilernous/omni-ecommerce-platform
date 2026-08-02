@@ -12,7 +12,18 @@ export class ReviewRpcController {
   }
 
   @MessagePattern('review.get_by_product')
+  @MessagePattern('review.list_by_product')
   async getProductReviews(@Payload() data: { productId: string }): Promise<any> {
     return this.reviewService.getProductReviews(data.productId);
+  }
+
+  @MessagePattern('review.moderate')
+  async moderateReview(@Payload() data: { reviewId?: string; id?: string; status: 'APPROVED' | 'REJECTED'; reason?: string }): Promise<any> {
+    return this.reviewService.moderateReview(data.reviewId || data.id || '', data.status, data.reason);
+  }
+
+  @MessagePattern('review.summary')
+  async getProductReviewSummary(@Payload() data: { productId: string }): Promise<any> {
+    return this.reviewService.getProductReviewSummary(data.productId);
   }
 }
