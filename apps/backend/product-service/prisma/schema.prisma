@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("PRODUCT_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+model Category {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @db.VarChar(100)
+  slug      String     @unique @db.VarChar(120)
+  parentId  String?    @map("parent_id") @db.Uuid
+  depth     Int        @default(1)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@index([parentId], name: "idx_categories_parent_id")
+  @@map("categories")
+}
+
+model Brand {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique @db.VarChar(100)
+  slug      String    @unique @db.VarChar(120)
+  logoUrl   String?   @map("logo_url") @db.VarChar(512)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id             String        @id @default(uuid()) @db.Uuid
+  sellerId       String        @map("seller_id") @db.Uuid
+  title          String        @db.VarChar(255)
+  slug           String        @unique @db.VarChar(280)
+  description    String        @db.Text
+  basePrice      Decimal       @map("base_price") @db.Decimal(12, 4)
+  salePrice      Decimal?      @map("sale_price") @db.Decimal(12, 4)
+  categoryId     String        @map("category_id") @db.Uuid
+  brandId        String?       @map("brand_id") @db.Uuid
+  status         ProductStatus @default(PENDING_APPROVAL)
+  averageRating  Decimal       @default(0.00) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount    Int           @default(0) @map("review_count")
+  rejectionNotes String?       @map("rejection_notes") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  category Category       @relation(fields: [categoryId], references: [id])
+  brand    Brand?         @relation(fields: [brandId], references: [id])
+  skus     ProductSku[]
+  images   ProductImage[]
+
+  @@index([sellerId], name: "idx_products_seller_id")
+  @@index([categoryId], name: "idx_products_category_id")
+  @@index([status], name: "idx_products_status")
+  @@map("products")
+}
+
+model ProductSku {
+  id         String   @id @default(uuid()) @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  sku        String   @unique @db.VarChar(64)
+  attributes Json     @db.JsonB
+  price      Decimal  @db.Decimal(12, 4)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId], name: "idx_skus_product_id")
+  @@map("product_skus")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  imageUrl  String   @map("image_url") @db.VarChar(512)
+  sortOrder Int      @default(0) @map("sort_order")
+  isPrimary Boolean  @default(false) @map("is_primary")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(64)
+  eventType     String    @map("event_type") @db.VarChar(128)
+  payloadJson   Json      @map("payload_json") @db.JsonB
+  status        String    @default("PENDING") @db.VarChar(32)
+  retryCount    Int       @default(0) @map("retry_count")
+  lastError     String?   @map("last_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], name: "idx_outbox_events_status_created")
+  @@map("outbox_events")
+}
