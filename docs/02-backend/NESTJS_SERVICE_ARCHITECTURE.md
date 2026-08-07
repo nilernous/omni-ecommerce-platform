@@ -145,12 +145,7 @@ Example:
 
 ```text
 src/modules/
-
-order/
-
-payment/
-
-inventory/
+└── <module-name>/  (e.g., order/, payment/, inventory/)
 ```
 
 This organization improves scalability and domain ownership.
@@ -840,10 +835,8 @@ Each business domain owns all components required to implement its functionality
 Example:
 
 ```text
-product/
-order/
-payment/
-customer/
+src/modules/
+└── <module-name>/  (e.g., product/, order/, payment/)
 ```
 
 instead of:
@@ -1131,29 +1124,25 @@ Below is the standard, authoritative directory tree that must be followed by eve
 │   │
 │   ├── modules/
 │   │   │
-│   │   ├── <module-name>/
-│   │   │   │
-│   │   │   ├── controllers/
-│   │   │   │   ├── <module-name>.rpc.controller.ts
-│   │   │   │   └── <module-name>.event.controller.ts
-│   │   │   │
-│   │   │   ├── dto/
-│   │   │   │   ├── requests/
-│   │   │   │   ├── responses/
-│   │   │   │   └── events/
-│   │   │   │
-│   │   │   ├── entities/
-│   │   │   ├── repositories/
-│   │   │   ├── services/
-│   │   │   ├── validators/
-│   │   │   ├── mappers/
-│   │   │   ├── interfaces/
-│   │   │   ├── types/
-│   │   │   └── <module-name>.module.ts
-│   │   │
-│   │   ├── payment/
-│   │   ├── inventory/
-│   │   └── ...
+│   │   └── <module-name>/
+│   │       │
+│   │       ├── controllers/
+│   │       │   ├── <module-name>.rpc.controller.ts
+│   │       │   └── <module-name>.event.controller.ts
+│   │       │
+│   │       ├── dto/
+│   │       │   ├── requests/
+│   │       │   ├── responses/
+│   │       │   └── events/
+│   │       │
+│   │       ├── entities/
+│   │       ├── repositories/
+│   │       ├── services/
+│   │       ├── validators/
+│   │       ├── mappers/
+│   │       ├── interfaces/
+│   │       ├── types/
+│   │       └── <module-name>.module.ts
 │   │
 │   ├── app.module.ts
 │   └── main.ts
