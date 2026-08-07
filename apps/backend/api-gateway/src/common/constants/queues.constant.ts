@@ -10,3 +10,5 @@ export const SHIPPING_QUEUE = 'shipping_queue';
 export const COUPON_QUEUE = 'coupon_queue';
 export const REVIEW_QUEUE = 'review_queue';
 export const NOTIFICATION_QUEUE = 'notification_queue';
+export const ANALYTICS_QUEUE = 'analytics_queue';
+

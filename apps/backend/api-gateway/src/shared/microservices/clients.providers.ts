@@ -13,6 +13,7 @@ import {
   COUPON_SERVICE,
   REVIEW_SERVICE,
   NOTIFICATION_SERVICE,
+  ANALYTICS_SERVICE,
 } from '../../common/constants/services.constant';
 import {
   AUTH_QUEUE,
@@ -27,6 +28,7 @@ import {
   COUPON_QUEUE,
   REVIEW_QUEUE,
   NOTIFICATION_QUEUE,
+  ANALYTICS_QUEUE,
 } from '../../common/constants/queues.constant';
 
 function createRmqClientProvider(provideToken: string, queueName: string) {
@@ -62,4 +64,6 @@ export const clientsProviders = [
   createRmqClientProvider(COUPON_SERVICE, COUPON_QUEUE),
   createRmqClientProvider(REVIEW_SERVICE, REVIEW_QUEUE),
   createRmqClientProvider(NOTIFICATION_SERVICE, NOTIFICATION_QUEUE),
+  createRmqClientProvider(ANALYTICS_SERVICE, ANALYTICS_QUEUE),
 ];
+

@@ -29,6 +29,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { ReviewModule } from './modules/review/review.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -60,6 +61,7 @@ import { HealthModule } from './modules/health/health.module';
     CouponModule,
     ReviewModule,
     NotificationModule,
+    AnalyticsModule,
     HealthModule,
   ],
   providers: [
