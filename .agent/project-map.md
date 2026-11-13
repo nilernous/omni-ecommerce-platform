@@ -269,6 +269,7 @@ docs/
 │   ├── DATABASE_ARCHITECTURE.md # Database per Service, Schemas, ORM & Replication
 │   ├── CACHE_ARCHITECTURE.md    # Redis Caching Patterns, TTL Strategy & Eviction Policy
 │   ├── EVENT_ARCHITECTURE.md    # RabbitMQ AMQP Topology, Event Schemas & DLQ Strategy
+│   ├── EVENT_LIST.md            # Canonical domain event list: producers, consumers, code status
 │   ├── FILE_STORAGE_ARCHITECTURE.md # MinIO / S3 Object Storage & CDN Architecture
 │   ├── SEARCH_ARCHITECTURE.md   # Elasticsearch Indexing & Sync Architecture
 │   └── CONFIGURATION_ARCHITECTURE.md # Environment Variables & Vault Secret Management

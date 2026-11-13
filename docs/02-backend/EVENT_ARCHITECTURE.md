@@ -183,7 +183,7 @@ Routing keys follow a three-part `kebab-case` structure: `{domain}.{subdomain}.{
 
 - `order.created`
 - `product.updated`
-- `inventory.stock-reserved`
+- `inventory.reserved`
 - `payment.completed`
 
 ---
@@ -239,6 +239,8 @@ All published messages must be wrapped in a uniform JSON event envelope:
 ---
 
 # 5. Domain Event Catalog
+
+> **Canonical list:** [EVENT_LIST.md](./EVENT_LIST.md) is the source of truth for routing keys, producers, consumers, and code status. The tables below are an overview. Events that appear here but in no business rule are listed in EVENT_LIST.md §5.3.
 
 ## 5.1 Identity Service Events — Auth
 
@@ -521,8 +523,9 @@ Prometheus tracks:
 
 # 11. Related Documents
 
-- [BACKEND_ARCHITECTURE.md](file:///c:/Users/ASUS/Desktop/omni-ecommerce/docs/02-backend/BACKEND_ARCHITECTURE.md)
-- [API_ARCHITECTURE.md](file:///c:/Users/ASUS/Desktop/omni-ecommerce/docs/02-backend/API_ARCHITECTURE.md)
+- [EVENT_LIST.md](./EVENT_LIST.md)
+- [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md)
+- [API_ARCHITECTURE.md](./API_ARCHITECTURE.md)
 
 ---
 
