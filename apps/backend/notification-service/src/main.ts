@@ -1,18 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
+import { RPC_QUEUES } from '@omnicommerce/constants';
+import { connectRabbitMq } from '@omnicommerce/events';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const microservicePort = Number(process.env.NOTIFICATION_SERVICE_TCP_PORT || 3013);
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: { host: '0.0.0.0', port: microservicePort },
+  await connectRabbitMq(app, {
+    serviceName: 'notification-service',
+    rpcQueue: RPC_QUEUES.NOTIFICATION,
   });
 
-  await app.startAllMicroservices();
-  await app.listen(Number(process.env.NOTIFICATION_SERVICE_PORT || 3012));
+  const port = Number(process.env.NOTIFICATION_SERVICE_PORT || process.env.PORT || 3013);
+  await app.listen(port);
+  console.log(`🔔 Notification Service running on HTTP port ${port} (RPC queue: ${RPC_QUEUES.NOTIFICATION})`);
 }
 
 bootstrap();
