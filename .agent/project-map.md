@@ -172,7 +172,7 @@ All microservices are implemented using **NestJS**, operating as independent dom
 | **Review Service** | `apps/backend/review-service/` | `3010` | PostgreSQL | Product ratings, customer review submission, review moderation, rating aggregates. |
 | **Media Service** | `apps/backend/media-service/` | `3011` | MinIO / Cloudflare R2 | Image & video upload processing, thumbnail generation, CDN asset URL delivery. |
 | **Search Service** | `apps/backend/search-service/` | `3012` | Elasticsearch | Full-text product search indexing, autocomplete, facet filters, search sync from Product Service. |
-| **Notification** | `apps/backend/notification-service/` | `3013` | Redis (Queue) | Email delivery (Nodemailer), SMS gateway, Firebase Cloud Messaging (FCM) mobile push alerts. |
+| **Notification** | `apps/backend/notification-service/` | `3013` | PostgreSQL + RabbitMQ | Email delivery (Nodemailer), SMS gateway, Firebase Cloud Messaging (FCM) mobile push alerts. |
 | **Analytics Service**| `apps/backend/analytics-service/` | `3014` | PostgreSQL (TimescaleDB) | Event metrics aggregation, sales reports, user conversion tracking, system usage telemetry. |
 
 ---
@@ -313,7 +313,7 @@ docs/
 | **Review Service** | Microservice | `apps/backend/review-service/` | `3010` | `/api/v1/reviews/*` | PostgreSQL |
 | **Media Service** | Microservice | `apps/backend/media-service/` | `3011` | `/api/v1/media/*` | MinIO / S3 (`9000`) |
 | **Search Service** | Microservice | `apps/backend/search-service/` | `3012` | `/api/v1/search/*` | Elasticsearch (`9200`) |
-| **Notification** | Microservice | `apps/backend/notification-service/` | `3013` | Internal AMQP | Redis, RabbitMQ |
+| **Notification** | Microservice | `apps/backend/notification-service/` | `3013` | Internal AMQP | PostgreSQL, RabbitMQ |
 | **Analytics Service**| Microservice | `apps/backend/analytics-service/` | `3014` | `/api/v1/analytics/*` | TimescaleDB |
 
 ---

@@ -15,7 +15,7 @@
 | Project | OmniCommerce |
 | Layer | Persistence & Data Architecture Layer |
 | Primary Database | PostgreSQL 16 (Relational System of Record) |
-| In-Memory Datastore | Redis 7.2 (Caching, Distributed Locking, Cart, BullMQ Queues) |
+| In-Memory Datastore | Redis 7.2 (Caching, Distributed Locking, Cart) |
 | Search Engine | Elasticsearch 8.x (Full-Text Search & Catalog Aggregations) |
 | Time-Series Engine | TimescaleDB / PostgreSQL Hyper-tables (Analytics & Metric Rollups) |
 | Object Storage | MinIO / Cloudflare R2 / AWS S3 (Binary Media & Labels) |
@@ -50,7 +50,7 @@
   - [3.8 Shipping Service (`shipping_db` - PostgreSQL)](#38-shipping-service-shipping_db---postgresql)
   - [3.9 Promotion Service (`promotion_db` - PostgreSQL & Redis)](#39-promotion-service-promotion_db---postgresql--redis)
   - [3.10 Review Service (`review_db` - PostgreSQL)](#310-review-service-review_db---postgresql)
-  - [3.11 Notification Service (`notification_db` - PostgreSQL & Redis)](#311-notification-service-notification_db---postgresql--redis)
+  - [3.11 Notification Service (`notification_db` - PostgreSQL)](#311-notification-service-notification_db---postgresql)
   - [3.12 Media Service (`media_db` - PostgreSQL & Object Storage)](#312-media-service-media_db---postgresql--object-storage)
   - [3.13 Analytics Service (`analytics_db` - TimescaleDB)](#313-analytics-service-analytics_db---timescaledb)
   - [3.14 Search Service Engine (`omni_products_v1` - Elasticsearch 8.x)](#314-search-service-engine-omni_products_v1---elasticsearch-8x)
@@ -971,12 +971,12 @@ model ProductReview {
 
 ---
 
-## 3.11 Notification Service (`notification_db` - PostgreSQL & Redis)
+## 3.11 Notification Service (`notification_db` - PostgreSQL)
 
 ### 3.11.1 Overview & Responsibilities
 - **Database Name:** `omni_notification_db`
 - **Owner Service:** `notification-service` (Port `3013`)
-- **Responsibilities:** Handlebars HTML email dispatch, Twilio SMS, Firebase Cloud Messaging (FCM) mobile push, BullMQ worker queues with exponential retries.
+- **Responsibilities:** Handlebars HTML email dispatch, Twilio SMS, Firebase Cloud Messaging (FCM) mobile push, RabbitMQ dispatch queues with TTL + DLX delayed retries (queues live in RabbitMQ, not in this database).
 
 ### 3.11.2 Prisma Schema (`apps/backend/notification-service/prisma/schema.prisma`)
 

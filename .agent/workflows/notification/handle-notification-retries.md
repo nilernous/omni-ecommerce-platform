@@ -123,19 +123,19 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Failure Interception**: Catches dispatch API exceptions (`NOTIF-BR-06`).
+**Failure Interception**: Dispatch consumer catches the gateway exception and reads the `x-retry-count` header (`NOTIF-BR-06`).
 
 ---
 
 ## Step 2
 
-**Exponential Backoff**: Schedules up to 3 retries (10s, 30s, 90s, `NOTIF-BR-07`).
+**Exponential Backoff**: Republishes the message to the RabbitMQ delay queue for the next attempt (`retry-10s`, `retry-30s`, `retry-90s`) with `x-retry-count + 1`, then acks the original. On TTL expiry RabbitMQ dead-letters it back to `omni.notification.dispatch` (`NOTIF-BR-07`).
 
 ---
 
 ## Step 3
 
-**Dead-Letter Routing**: On 3rd failed retry, routes job to DLQ and marks log status `FAILED` in `notification_db`.
+**Dead-Letter Routing**: On 3rd failed retry, publishes the message to `omni.dead.letter` (routing key `dlq.notification` → `omni.notification.dlq`) and marks log status `FAILED` in `notification_db`.
 
 ---
 
@@ -196,17 +196,19 @@ Operation rejected without state modification.
 ```mermaid
 sequenceDiagram
   autonumber
-  participant Worker as BullMQ Worker
+  participant Worker as Dispatch Consumer
   participant Gateway as SMTP / Twilio / FCM API
-  participant DLQ as Dead Letter Queue (DLQ)
+  participant RetryQ as RabbitMQ Delay Queue (retry-10s / 30s / 90s)
+  participant DLQ as RabbitMQ DLQ (omni.notification.dlq)
   participant DB as PostgreSQL (notification_db)
 
   Worker->>Gateway: Dispatch Notification Attempt
   Gateway-->>Worker: Error / Timeout (Connection Refused)
   alt Retry Attempt < 3
-    Worker->>Worker: Schedule Backoff Delay (Attempt 1: 10s, Attempt 2: 30s, Attempt 3: 90s) (NOTIF-BR-07)
+    Worker->>RetryQ: Publish with x-retry-count + 1 (Attempt 1: 10s, Attempt 2: 30s, Attempt 3: 90s) (NOTIF-BR-07)
+    RetryQ-->>Worker: TTL expires → dead-lettered to omni.notification.dispatch → redelivered
   else Retry Attempt == 3 Fails
-    Worker->>DLQ: Move Job to Dead Letter Queue
+    Worker->>DLQ: Publish to omni.dead.letter (dlq.notification)
     Worker->>DB: UPDATE notification_logs SET status = 'FAILED' WHERE id = ?
   end
 ```

@@ -38,7 +38,7 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 | `REV-BR` | **Review Service** | `3010` | PostgreSQL (`review_db`) | 01 - 12 | Verified purchase product reviews, star ratings, moderation |
 | `MED-BR` | **Media Service** | `3011` | MinIO / S3 (`media_bucket`) + Postgres | 01 - 09 | File upload handling, MIME verification, image resizing |
 | `SRCH-BR` | **Search Service** | `3012` | Elasticsearch (`products_index`) | 01 - 11 | Full-text product search, auto-complete, faceted filters |
-| `NOTIF-BR`| **Notification Service**| `3013` | Redis + PostgreSQL (`notification_db`)| 01 - 12 | Multi-channel dispatch (Email, SMS, Push), templates |
+| `NOTIF-BR`| **Notification Service**| `3013` | PostgreSQL (`notification_db`) + RabbitMQ| 01 - 12 | Multi-channel dispatch (Email, SMS, Push), templates |
 | `ANL-BR` | **Analytics Service** | `3014` | TimescaleDB (`analytics_db`) | 01 - 13 | Business metrics, GMV, Net Revenue, conversion funnels |
 
 ---
@@ -396,7 +396,7 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 ---
 
 ### 3.13 Notification Service (`NOTIF-BR`)
-*Source Spec:* [.agent/business-rules/notification.md](../../.agent/business-rules/notification.md) | *Port:* `3013` | *Database:* Redis + PostgreSQL (`notification_db`)
+*Source Spec:* [.agent/business-rules/notification.md](../../.agent/business-rules/notification.md) | *Port:* `3013` | *Database:* PostgreSQL (`notification_db`) + RabbitMQ (dispatch queues)
 
 #### Core Business Rules:
 - **`NOTIF-BR-01: Email Template Rendering`**: Formats HTML emails using Handlebars templates for transactional notifications (Order Confirmation, Welcome, Password Reset).
@@ -404,8 +404,8 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 - **`NOTIF-BR-03: Mobile Push Dispatching`**: Sends push notifications to iOS and Android devices via Firebase Cloud Messaging (FCM).
 - **`NOTIF-BR-04: Mandatory Transactional Messages`**: Transactional notifications (Password Reset, Order Placed, Payment Receipts) CANNOT be unsubscribed by users.
 - **`NOTIF-BR-05: Marketing Preference Check`**: Promotional notifications MUST check User Service preferences (`marketingEnabled = true`). Skips message if opted out.
-- **`NOTIF-BR-06: Asynchronous Queueing`**: Outbound notifications are queued in Redis via BullMQ to decouple dispatching from event emission.
-- **`NOTIF-BR-07: Dispatch Retry Strategy`**: Failed delivery attempts retry **3 times** with exponential backoff (10s, 30s, 90s) before moving to Dead Letter Queue (DLQ).
+- **`NOTIF-BR-06: Asynchronous Queueing`**: Outbound notifications are published as dispatch messages to the RabbitMQ topic exchange `omni.notification.dispatch` (routing keys `email`, `sms`, `push`) and consumed from durable per-channel queues (`omni.notification.email-dispatch.queue`, `omni.notification.sms-dispatch.queue`, `omni.notification.push-dispatch.queue`) to decouple dispatching from event emission.
+- **`NOTIF-BR-07: Dispatch Retry Strategy`**: Failed delivery attempts retry **3 times** with exponential backoff (10s, 30s, 90s) before moving to Dead Letter Queue (DLQ). Retries use RabbitMQ delay queues (`omni.notification.retry-10s.queue`, `retry-30s`, `retry-90s`) with `x-message-ttl` and `x-dead-letter-exchange = omni.notification.dispatch`, so expired messages return to their channel queue. The attempt count is carried in the `x-retry-count` header. After the 3rd failed retry the message is published to `omni.dead.letter` (routing key `dlq.notification`) and lands in `omni.notification.dlq`.
 - **`NOTIF-BR-08: Consumer auth.user.registered`**: Dispatches welcome email.
 - **`NOTIF-BR-09: Consumer auth.password.changed`**: Dispatches security alert email.
 - **`NOTIF-BR-10: Consumer order.created`**: Dispatches order placement confirmation email & push alert.

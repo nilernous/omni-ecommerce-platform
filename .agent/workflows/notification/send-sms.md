@@ -130,13 +130,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 2
 
-**Queue Dispatch**: Pushes SMS job to BullMQ queue (`NOTIF-BR-06`).
+**Queue Dispatch**: Publishes SMS dispatch message to RabbitMQ exchange `omni.notification.dispatch` with routing key `sms` (`NOTIF-BR-06`).
 
 ---
 
 ## Step 3
 
-**Twilio Dispatch**: Worker calls Twilio API to deliver SMS to user phone number.
+**Twilio Dispatch**: SMS dispatch consumer reads from `omni.notification.sms-dispatch.queue` and calls Twilio API to deliver SMS to user phone number.
 
 ---
 
@@ -199,14 +199,17 @@ sequenceDiagram
   autonumber
   actor Broker as RabbitMQ Event Bus
   participant NotifSvc as Notification Service (:3013)
-  participant RedisQueue as Redis (BullMQ Queue)
+  participant DispatchQ as RabbitMQ (sms-dispatch.queue)
+  participant Worker as SMS Dispatch Consumer
   participant Twilio as Twilio SMS API
 
   Broker->>NotifSvc: Deliver Event (`shipping.dispatched` / OTP Request)
   NotifSvc->>NotifSvc: Format SMS Text Message (NOTIF-BR-02)
-  NotifSvc->>RedisQueue: Push SMS Job
-  RedisQueue->>Twilio: Dispatch SMS (to: E.164 Phone, body)
-  Twilio-->>NotifSvc: SMS Dispatched Confirmation
+  NotifSvc->>DispatchQ: Publish SMS Dispatch Message (routing key: sms) (NOTIF-BR-06)
+  DispatchQ->>Worker: Deliver SMS Dispatch Message
+  Worker->>Twilio: Dispatch SMS (to: E.164 Phone, body)
+  Twilio-->>Worker: SMS Dispatched Confirmation
+  Worker->>DispatchQ: ACK Message
 ```
 
 ---

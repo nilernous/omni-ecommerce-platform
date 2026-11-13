@@ -19,7 +19,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **`SELLER`**: Verified merchant vendor creating product listings, managing physical stock, generating carrier shipping labels, and viewing store performance.
 - **`ADMIN`**: Platform operational administrator approving product listings, moderating customer reviews, managing promotions, and issuing refunds.
 - **`SUPER_ADMIN`**: Root system administrator managing user role assignments and platform system configurations.
-- **`SYSTEM_WORKER` / Event Consumer**: Asynchronous background worker processing AMQP message queues, scheduled cron jobs, Redis distributed locks, and BullMQ retries.
+- **`SYSTEM_WORKER` / Event Consumer**: Asynchronous background worker processing AMQP message queues, scheduled cron jobs, Redis distributed locks, and RabbitMQ delayed retries (TTL + DLX).
 - **`CARRIER_WEBHOOK`**: Third-party logistics carrier API (FedEx, UPS, DHL) pushing real-time tracking scan updates.
 - **`PAYMENT_GATEWAY_WEBHOOK`**: Third-party payment provider API (Stripe, PayPal) pushing asynchronous transaction settlement callbacks.
 
@@ -41,7 +41,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 | `REV-UC` | **Review Service** | `3010` | 3 | Customer, Admin | Verified purchase product reviews, 1-5 star ratings, profanity moderation |
 | `MED-UC` | **Media Service** | `3011` | 3 | Customer, Seller, Admin | Multipart file uploads, magic-byte checks, WebP conversion, thumbnails |
 | `SRCH-UC` | **Search Service** | `3012` | 4 | Customer, Admin, Event Bus | Full-text product search, auto-complete, 2s event sync SLA, bulk reindexing |
-| `NOTIF-UC`| **Notification Service**| `3013` | 5 | System, Customer | Email (Handlebars), SMS (Twilio), Mobile Push (FCM), BullMQ retries |
+| `NOTIF-UC`| **Notification Service**| `3013` | 5 | System, Customer | Email (Handlebars), SMS (Twilio), Mobile Push (FCM), RabbitMQ retries |
 | `ANL-UC` | **Analytics Service** | `3014` | 5 | Admin, Seller, System Bus | Async metric ingestion, TimescaleDB hyper-tables, GMV/AOV reports |
 
 ---
@@ -381,7 +381,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Trigger**: Internal stock deduction logic evaluates `Available Quantity < 5`.
 - **Main Success Scenario**:
   1. Inventory Service constructs `inventory.low_stock` event payload (`sku`, `availableQuantity`, `warehouseId`).
-  2. Service publishes event to RabbitMQ topic exchange (`omni.events.topic`) (`INV-BR-12`).
+  2. Service publishes event to RabbitMQ topic exchange (`omni.domain.events`) (`INV-BR-12`).
   3. Notification Service consumes event and sends low-stock alert email to merchant/admin.
 - **Business Rules Referenced**: `INV-BR-03`, `INV-BR-12`.
 - **Postconditions**: Event `inventory.low_stock` published to message broker.
@@ -920,8 +920,8 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
      - Promotional notifications check User Service preferences (`marketingEnabled == true`, `NOTIF-BR-05`).
   3. Service loads HTML Handlebars template for event type (`NOTIF-BR-01`).
   4. Service renders Handlebars template with event data.
-  5. Service enqueues email job in BullMQ Redis queue (`NOTIF-BR-06`).
-  6. BullMQ worker calls SMTP gateway (Nodemailer / SendGrid) and dispatches email.
+  5. Service publishes an email dispatch message to RabbitMQ exchange `omni.notification.dispatch` (routing key `email`) (`NOTIF-BR-06`).
+  6. Email dispatch consumer reads from `omni.notification.email-dispatch.queue`, calls SMTP gateway (Nodemailer / SendGrid), and acks the message.
   7. Service logs notification delivery status in `notification_db`.
 - **Alternative / Exception Flows**:
   - *User Opted Out of Marketing*: Promotional notification skipped, log recorded as `SKIPPED_OPT_OUT` (`NOTIF-BR-05`).
@@ -935,7 +935,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Main Success Scenario**:
   1. Notification Service extracts phone number and message template variables.
   2. Service formats text message (`NOTIF-BR-02`).
-  3. Service enqueues SMS job in BullMQ queue (`NOTIF-BR-06`).
+  3. Service publishes an SMS dispatch message to `omni.notification.dispatch` (routing key `sms`) (`NOTIF-BR-06`).
   4. Worker dispatches SMS via Twilio API.
   5. Service logs delivery record in `notification_db`.
 - **Business Rules Referenced**: `NOTIF-BR-02`, `NOTIF-BR-06`, `NOTIF-BR-12`.
@@ -965,13 +965,14 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Postconditions**: Notification history returned or marked read.
 
 #### NOTIF-UC-05: Handle Notification Dispatch Failure & Retries
-- **Primary Actor**: BullMQ Worker / System Queue
+- **Primary Actor**: RabbitMQ Dispatch Consumer (System)
 - **Preconditions**: Email, SMS, or Push dispatch failed due to network or gateway error.
 - **Trigger**: SMTP / Twilio / FCM API returns error or timeout.
 - **Main Success Scenario**:
-  1. BullMQ worker intercepts failure.
-  2. Worker schedules job retry with exponential backoff delay (Attempt 1: 10s, Attempt 2: 30s, Attempt 3: 90s) (`NOTIF-BR-07`).
-  3. If all 3 retry attempts fail, worker moves job to Dead Letter Queue (DLQ) and flags status `FAILED` in `notification_db`.
+  1. Dispatch consumer intercepts the failure and reads the `x-retry-count` header.
+  2. Consumer republishes the message to the matching RabbitMQ delay queue (Attempt 1: `retry-10s`, Attempt 2: `retry-30s`, Attempt 3: `retry-90s`) with `x-retry-count + 1`, then acks the original (`NOTIF-BR-07`).
+  3. When the TTL expires, RabbitMQ dead-letters the message back to `omni.notification.dispatch` and it is redelivered to its channel queue.
+  4. If all 3 retry attempts fail, consumer publishes the message to `omni.dead.letter` (`dlq.notification` → `omni.notification.dlq`) and flags status `FAILED` in `notification_db`.
 - **Business Rules Referenced**: `NOTIF-BR-06`, `NOTIF-BR-07`.
 - **Postconditions**: Notification retried up to 3 times before DLQ movement.
 

@@ -62,6 +62,7 @@
    7.1 Idempotent Message Processing  
    7.2 Retry Strategy & Exponential Backoff  
    7.3 Dead Letter Exchange (DLX) & Queue (DLQ) Topology  
+   7.4 Delayed Retry Queues (TTL + DLX) — Notification Dispatch  
 8. Security & Governance
    8.1 Message Encryption & Sensitivity  
    8.2 Access Control & Broker Credentials  
@@ -127,7 +128,7 @@ OmniCommerce microservices interact synchronously via REST APIs when immediate r
                                            │ 2. Outbox Relay
                                            ▼
                                  RabbitMQ Topic Exchange
-                                (`omni.events.topic`)
+                                (`omni.domain.events`)
                                            │
                     ┌──────────────────────┼──────────────────────┐
                     │ Routing: `order.created`                    │
@@ -160,8 +161,8 @@ OmniCommerce utilizes dedicated RabbitMQ Exchanges based on event distribution r
 
 | Exchange Name | Type | Purpose | Example Routing Key |
 |---------------|------|---------|---------------------|
-| `omni.events.topic` | `topic` | Primary exchange for all domain and integration events | `order.created`, `product.updated` |
-| `omni.events.dlx` | `direct` | Dead Letter Exchange for failed event retries | `dlq.order-service`, `dlq.notification` |
+| `omni.domain.events` | `topic` | Primary exchange for all domain and integration events | `order.created`, `product.updated` |
+| `omni.dead.letter` | `direct` | Dead Letter Exchange for failed event retries | `dlq.order-service`, `dlq.notification` |
 | `omni.events.fanout` | `fanout` | Global broadcast system events (e.g. cache invalidation) | N/A |
 
 ---
@@ -429,10 +430,46 @@ When event processing encounters temporary infrastructure failures (e.g. databas
 
 ## 7.3 Dead Letter Exchange (DLX) & Queue (DLQ) Topology
 
-Rejected messages automatically route to `omni.events.dlx` and populate the service's Dead Letter Queue (`omni.{service}.dlq`):
+Rejected messages automatically route to `omni.dead.letter` and populate the service's Dead Letter Queue (`omni.{service}.dlq`):
 
 ```text
 [ Active Queue ] ──(Max Retries Exceeded)──► [ Dead Letter Exchange ] ──► [ Consumer DLQ ] ──► [ Admin Alert / Manual Replay ]
+```
+
+---
+
+## 7.4 Delayed Retry Queues (TTL + DLX) — Notification Dispatch
+
+RabbitMQ is the only queueing technology for background jobs. No Redis-based job queue (e.g. BullMQ) is used. Jobs that need delayed retries, such as outbound notification dispatch (`NOTIF-BR-06`, `NOTIF-BR-07`), use per-delay TTL queues that dead-letter back to the work exchange.
+
+| Exchange | Type | Purpose |
+|----------|------|---------|
+| `omni.notification.dispatch` | `topic` | Work exchange for outbound email / SMS / push jobs |
+| `omni.notification.retry` | `topic` | Holds failed jobs until their backoff delay expires |
+| `omni.dead.letter` | `direct` | Final destination after max retries (routing key `dlq.notification`) |
+
+| Queue | Bound To (Binding Key) | Arguments |
+|-------|------------------------|-----------|
+| `omni.notification.email-dispatch.queue` | `omni.notification.dispatch` (`email.#`) | `durable` |
+| `omni.notification.sms-dispatch.queue` | `omni.notification.dispatch` (`sms.#`) | `durable` |
+| `omni.notification.push-dispatch.queue` | `omni.notification.dispatch` (`push.#`) | `durable` |
+| `omni.notification.retry-10s.queue` | `omni.notification.retry` (`*.retry.10s`) | `x-message-ttl: 10000`, `x-dead-letter-exchange: omni.notification.dispatch` |
+| `omni.notification.retry-30s.queue` | `omni.notification.retry` (`*.retry.30s`) | `x-message-ttl: 30000`, `x-dead-letter-exchange: omni.notification.dispatch` |
+| `omni.notification.retry-90s.queue` | `omni.notification.retry` (`*.retry.90s`) | `x-message-ttl: 90000`, `x-dead-letter-exchange: omni.notification.dispatch` |
+| `omni.notification.dlq` | `omni.dead.letter` (`dlq.notification`) | `durable` |
+
+**Retry flow:**
+1. The dispatch consumer fails to deliver a job from, e.g., `email-dispatch.queue` and reads the `x-retry-count` header (default `0`).
+2. If `x-retry-count < 3`, the consumer publishes the same payload to `omni.notification.retry` with routing key `{channel}.retry.{10s|30s|90s}` and `x-retry-count + 1`, then `ACK`s the original message.
+3. When the TTL expires, RabbitMQ dead-letters the message to `omni.notification.dispatch`. The routing key is kept, e.g. `email.retry.10s`, so it matches `email.#` and returns to its channel queue.
+4. If `x-retry-count == 3`, the consumer publishes to `omni.dead.letter` (`dlq.notification`), `ACK`s the original, and marks the log `FAILED`.
+
+```text
+[ email-dispatch.queue ] ──(fail)──► [ omni.notification.retry ] ──► [ retry-10s / 30s / 90s ]
+          ▲                                                                   │ (TTL expired)
+          └──────────────── [ omni.notification.dispatch ] ◄───(DLX)──────────┘
+          │
+          └──(3rd retry failed)──► [ omni.dead.letter ] ──► [ omni.notification.dlq ]
 ```
 
 ---

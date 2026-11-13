@@ -23,7 +23,7 @@
 | **Review Service** | [review.md](./review.md) | `REV-UC-XX` | Submit verified purchase review, rate product (1-5 stars), profanity moderation, compute aggregate average rating. |
 | **Media Service** | [media.md](./media.md) | `MED-UC-XX` | Upload media asset (multipart), magic-byte validation, convert to WebP, generate 150px/500px/1200px thumbnails, asset deletion. |
 | **Search Service** | [search.md](./search.md) | `SRCH-UC-XX` | Full-text catalog search, faceted filter execution, auto-complete suggestions, event-driven search sync, full catalog reindex. |
-| **Notification Service**| [notification.md](./notification.md)| `NOTIF-UC-XX` | Dispatch email via Handlebars, send SMS alert, send FCM mobile push, BullMQ queue retries, marketing opt-out check. |
+| **Notification Service**| [notification.md](./notification.md)| `NOTIF-UC-XX` | Dispatch email via Handlebars, send SMS alert, send FCM mobile push, RabbitMQ delayed retries (TTL + DLX), marketing opt-out check. |
 | **Analytics Service** | [analytics.md](./analytics.md) | `ANL-UC-XX` | Async metric ingestion, TimescaleDB time-series aggregation, GMV/Revenue/AOV calculations, top product performance report. |
 
 ---
