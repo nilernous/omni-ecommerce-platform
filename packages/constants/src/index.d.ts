@@ -36,7 +36,7 @@ export declare enum DomainEvents {
     PAYMENT_FAILED = "payment.failed",
     INVENTORY_RESERVED = "inventory.reserved",
     INVENTORY_RELEASED = "inventory.released",
-    SHIPMENT_DISPATCHED = "shipment.dispatched",
+    SHIPPING_DISPATCHED = "shipping.dispatched",
     PRODUCT_UPDATED = "product.updated"
 }
 export declare const AMQP_EXCHANGES: {

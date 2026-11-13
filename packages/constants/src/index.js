@@ -44,7 +44,7 @@ var DomainEvents;
     DomainEvents["PAYMENT_FAILED"] = "payment.failed";
     DomainEvents["INVENTORY_RESERVED"] = "inventory.reserved";
     DomainEvents["INVENTORY_RELEASED"] = "inventory.released";
-    DomainEvents["SHIPMENT_DISPATCHED"] = "shipment.dispatched";
+    DomainEvents["SHIPPING_DISPATCHED"] = "shipping.dispatched";
     DomainEvents["PRODUCT_UPDATED"] = "product.updated";
 })(DomainEvents || (exports.DomainEvents = DomainEvents = {}));
 exports.AMQP_EXCHANGES = {
