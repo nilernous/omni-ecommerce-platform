@@ -1,12 +1,42 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService, PaymentStatus } from '@omnicommerce/database';
+import { DomainEvents } from '@omnicommerce/constants';
+import { DomainEventPublisher } from '@omnicommerce/events';
 
 @Injectable()
 export class PaymentService {
   private processedWebhookIds = new Set<string>();
   private refunds = new Map<string, any>();
 
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(PaymentService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private events: DomainEventPublisher,
+  ) {}
+
+  /** PAY-BR-19: open a PENDING payment record for a new order (idempotent per order). */
+  async initializeForOrder(orderId: string, amount: number, paymentMethod = 'CREDIT_CARD'): Promise<any> {
+    const existing = await this.prisma.payment.findFirst({ where: { orderId } });
+    if (existing) {
+      return existing;
+    }
+    return this.createPaymentIntent(orderId, paymentMethod, amount);
+  }
+
+  /** PAY-BR-20: refund captured payments and void pending ones when an order is cancelled. */
+  async handleOrderCancelled(orderId: string): Promise<void> {
+    const payments = await this.prisma.payment.findMany({ where: { orderId } });
+    for (const payment of payments) {
+      if (payment.status === PaymentStatus.COMPLETED) {
+        await this.refundPayment(payment.id);
+      } else if (payment.status === PaymentStatus.PENDING) {
+        // Voided silently: publishing payment.failed here would re-cancel an already cancelled order.
+        await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.FAILED } });
+        this.logger.log(`[PAY-BR-20] Voided pending payment ${payment.id} of cancelled order ${orderId}`);
+      }
+    }
+  }
 
   async createPaymentIntent(orderId: string, paymentMethod: string, amount: number): Promise<any> {
     this.assertPositiveAmount(amount);
@@ -23,15 +53,18 @@ export class PaymentService {
   async processPayment(orderId: string, paymentMethod: string, amount: number): Promise<any> {
     this.assertPositiveAmount(amount);
     const transactionId = 'TXN-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-    return this.prisma.payment.create({
-      data: {
-        orderId,
-        paymentMethod,
-        amount,
-        transactionId,
-        status: PaymentStatus.COMPLETED,
-      },
-    });
+    // Capture the PENDING record opened on order.created (PAY-BR-19) if there is one.
+    const pending = await this.prisma.payment.findFirst({ where: { orderId, status: PaymentStatus.PENDING } });
+    const payment = pending
+      ? await this.prisma.payment.update({
+          where: { id: pending.id },
+          data: { paymentMethod, amount, transactionId, status: PaymentStatus.COMPLETED },
+        })
+      : await this.prisma.payment.create({
+          data: { orderId, paymentMethod, amount, transactionId, status: PaymentStatus.COMPLETED },
+        });
+    await this.publishCompleted(payment);
+    return payment;
   }
 
   async getPaymentByOrder(orderId: string): Promise<any[]> {
@@ -60,10 +93,19 @@ export class PaymentService {
     this.processedWebhookIds.add(eventId);
 
     if (payload.paymentId && payload.status) {
-      await this.prisma.payment.update({
+      const payment = await this.prisma.payment.update({
         where: { id: payload.paymentId },
         data: { status: payload.status },
       });
+      if (payment.status === PaymentStatus.COMPLETED) {
+        await this.publishCompleted(payment);
+      } else if (payment.status === PaymentStatus.FAILED) {
+        await this.events.publish(DomainEvents.PAYMENT_FAILED, {
+          paymentId: payment.id,
+          orderId: payment.orderId,
+          reason: payload.reason || 'Declined by payment gateway',
+        }); // PAY-BR-17
+      }
     }
 
     return { duplicate: false, eventId, processed: true };
@@ -93,6 +135,12 @@ export class PaymentService {
       data: { status: PaymentStatus.REFUNDED },
     });
 
+    await this.events.publish(DomainEvents.PAYMENT_REFUNDED, {
+      paymentId,
+      orderId: payment.orderId,
+      refundId: refund.id,
+      amount: refundAmount,
+    }); // PAY-BR-18
     return refund;
   }
 
@@ -102,10 +150,22 @@ export class PaymentService {
       data: { status: PaymentStatus.FAILED },
     });
 
+    const failureReason = reason || 'Payment failed';
+    await this.events.publish(DomainEvents.PAYMENT_FAILED, { paymentId: payment.id, orderId: payment.orderId, reason: failureReason }); // PAY-BR-17
     return {
       ...payment,
-      failureReason: reason || 'Payment failed',
+      failureReason,
     };
+  }
+
+  /** PAY-BR-16 */
+  private async publishCompleted(payment: { id: string; orderId: string; transactionId: string | null; amount: unknown }): Promise<void> {
+    await this.events.publish(DomainEvents.PAYMENT_COMPLETED, {
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      transactionId: payment.transactionId ?? '',
+      amount: Number(payment.amount),
+    });
   }
 
   private assertPositiveAmount(amount: number): void {

@@ -1,28 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
+import { RPC_QUEUES } from '@omnicommerce/constants';
+import { connectRabbitMq } from '@omnicommerce/events';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
   const configService = app.get(ConfigService);
 
-  const microservicePort = configService.get<number>('app.microservicePort');
-  if (microservicePort) {
-    app.connectMicroservice<MicroserviceOptions>({
-      transport: Transport.TCP,
-      options: {
-        host: '0.0.0.0',
-        port: microservicePort,
-      },
-    });
-    await app.startAllMicroservices();
-  }
+  await connectRabbitMq(app, {
+    serviceName: 'product-service',
+    rpcQueue: RPC_QUEUES.PRODUCT,
+    url: configService.get<string>('rabbitmq.url'),
+  });
 
   const port = configService.get<number>('app.port') || 3003;
   await app.listen(port);
-  console.log(`🛍️ Product Service running on HTTP port ${port} and Microservice TCP port ${microservicePort}`);
+  console.log(`🛍️ Product Service running on HTTP port ${port} (RPC queue: ${RPC_QUEUES.PRODUCT})`);
 }
 
 bootstrap();

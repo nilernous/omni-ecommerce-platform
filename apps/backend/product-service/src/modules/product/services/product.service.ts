@@ -2,14 +2,19 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService, Product } from '@omnicommerce/database';
 import { CreateProductDto } from '@omnicommerce/dto';
 import { generateSlug } from '@omnicommerce/utils';
+import { DomainEvents } from '@omnicommerce/constants';
+import { DomainEventPublisher, ProductChangedPayload } from '@omnicommerce/events';
 
 @Injectable()
 export class ProductService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: DomainEventPublisher,
+  ) {}
 
   async create(dto: CreateProductDto): Promise<Product> {
     const slug = generateSlug(dto.name);
-    return this.prisma.product.create({
+    const product = await this.prisma.product.create({
       data: {
         name: dto.name,
         slug,
@@ -19,6 +24,8 @@ export class ProductService {
         brandId: dto.brandId,
       },
     });
+    await this.publishChanged(DomainEvents.PRODUCT_CREATED, product.id); // PRD-BR-13
+    return product;
   }
 
   async findAll(): Promise<Product[]> {
@@ -76,7 +83,7 @@ export class ProductService {
 
   async update(id: string, dto: Partial<CreateProductDto>): Promise<Product> {
     await this.findById(id);
-    return this.prisma.product.update({
+    const product = await this.prisma.product.update({
       where: { id },
       data: {
         name: dto.name,
@@ -87,18 +94,52 @@ export class ProductService {
         brandId: dto.brandId,
       },
     });
+    await this.publishChanged(DomainEvents.PRODUCT_UPDATED, id); // PRD-BR-14
+    return product;
   }
 
   async setApprovalStatus(id: string, approved: boolean): Promise<Product> {
     await this.findById(id);
-    return this.prisma.product.update({
+    const product = await this.prisma.product.update({
       where: { id },
       data: { isActive: approved },
     });
+
+    if (approved) {
+      await this.events.publish(DomainEvents.PRODUCT_APPROVED, { productId: id }); // PRD-BR-16
+      await this.publishChanged(DomainEvents.PRODUCT_UPDATED, id); // re-index the now active listing
+    } else {
+      await this.events.publish(DomainEvents.PRODUCT_DELETED, { productId: id }); // PRD-BR-15: purge from search
+    }
+    return product;
   }
 
   async archive(id: string): Promise<Product> {
     return this.setApprovalStatus(id, false);
+  }
+
+  private async publishChanged(eventType: DomainEvents.PRODUCT_CREATED | DomainEvents.PRODUCT_UPDATED, productId: string): Promise<void> {
+    const product = await this.prisma.product.findUnique({ where: { id: productId }, include: { variants: true } });
+    if (!product) {
+      return;
+    }
+    const payload: ProductChangedPayload = {
+      productId: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      price: Number(product.price),
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+      isActive: product.isActive,
+      variants: product.variants.map((variant) => ({
+        variantId: variant.id,
+        sku: variant.sku,
+        price: Number(variant.price),
+        stock: variant.stock,
+      })),
+    };
+    await this.events.publish(eventType, payload);
   }
 
   async createCategory(data: { name: string; description?: string; parentId?: string }): Promise<any> {

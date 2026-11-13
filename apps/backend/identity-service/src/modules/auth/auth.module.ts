@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@omnicommerce/database';
 import { AuthRpcController } from './controllers/auth.rpc.controller';
-import { AuthEventController } from './controllers/auth.event.controller';
 import { AuthService } from './services/auth.service';
 
 @Module({
@@ -18,7 +17,7 @@ import { AuthService } from './services/auth.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthRpcController, AuthEventController],
+  controllers: [AuthRpcController],
   providers: [AuthService, PrismaService],
   exports: [AuthService],
 })

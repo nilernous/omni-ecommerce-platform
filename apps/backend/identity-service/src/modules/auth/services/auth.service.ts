@@ -2,7 +2,8 @@ import { BadRequestException, ConflictException, Injectable, UnauthorizedExcepti
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@omnicommerce/database';
 import { LoginDto, RegisterDto } from '@omnicommerce/dto';
-import { UserRole } from '@omnicommerce/constants';
+import { DomainEvents, UserRole } from '@omnicommerce/constants';
+import { DomainEventPublisher } from '@omnicommerce/events';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private events: DomainEventPublisher,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -36,6 +38,15 @@ export class AuthService {
         phoneNumber: dto.phoneNumber,
         role: role as any,
       },
+    });
+
+    // AUTH-BR-16: notify external consumers (Notification, Analytics) after the commit.
+    await this.events.publish(DomainEvents.AUTH_USER_REGISTERED, {
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
     });
 
     const tokens = this.generateTokens(user.id, user.email, user.role);
@@ -94,6 +105,7 @@ export class AuthService {
 
   async logout(userId: string): Promise<any> {
     this.refreshTokens.delete(userId);
+    await this.events.publish(DomainEvents.AUTH_SESSION_REVOKED, { userId }); // AUTH-BR-18
     return { revoked: true };
   }
 
@@ -119,11 +131,12 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { email: reset.email },
       data: { password: hashedPassword },
     });
     this.passwordResetTokens.delete(token);
+    await this.events.publish(DomainEvents.AUTH_PASSWORD_CHANGED, { userId: user.id, email: user.email }); // AUTH-BR-17
     return { reset: true };
   }
 

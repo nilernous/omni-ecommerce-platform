@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@omnicommerce/database';
+import { DomainEvents } from '@omnicommerce/constants';
+import { DomainEventPublisher } from '@omnicommerce/events';
 
 @Injectable()
 export class UserService {
   private preferences = new Map<string, any>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: DomainEventPublisher,
+  ) {}
 
   async findById(id: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
@@ -42,7 +47,7 @@ export class UserService {
 
   async updateProfile(id: string, data: any): Promise<any> {
     await this.findById(id);
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         firstName: data.firstName,
@@ -60,6 +65,13 @@ export class UserService {
         addresses: true,
       },
     });
+    await this.events.publish(DomainEvents.USER_PROFILE_UPDATED, {
+      userId: id,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      phoneNumber: updated.phoneNumber,
+    }); // USER-BR-14
+    return updated;
   }
 
   async addAddress(userId: string, data: any): Promise<any> {
@@ -68,7 +80,7 @@ export class UserService {
       await this.clearDefaultAddress(userId);
     }
 
-    return this.prisma.address.create({
+    const address = await this.prisma.address.create({
       data: {
         userId,
         street: data.street,
@@ -79,6 +91,8 @@ export class UserService {
         isDefault: Boolean(data.isDefault),
       },
     });
+    await this.publishAddressUpdated(userId, address.id, 'ADDED', address.isDefault);
+    return address;
   }
 
   async updateAddress(userId: string, addressId: string, data: any): Promise<any> {
@@ -87,7 +101,7 @@ export class UserService {
       await this.clearDefaultAddress(userId);
     }
 
-    return this.prisma.address.update({
+    const address = await this.prisma.address.update({
       where: { id: addressId },
       data: {
         street: data.street,
@@ -98,11 +112,14 @@ export class UserService {
         isDefault: data.isDefault,
       },
     });
+    await this.publishAddressUpdated(userId, address.id, 'UPDATED', address.isDefault);
+    return address;
   }
 
   async deleteAddress(userId: string, addressId: string): Promise<any> {
     await this.assertAddressOwner(userId, addressId);
     await this.prisma.address.delete({ where: { id: addressId } });
+    await this.publishAddressUpdated(userId, addressId, 'DELETED');
     return { deleted: true, addressId };
   }
 
@@ -128,6 +145,11 @@ export class UserService {
         createdAt: true,
       },
     });
+  }
+
+  // USER-BR-15
+  private async publishAddressUpdated(userId: string, addressId: string, action: 'ADDED' | 'UPDATED' | 'DELETED', isDefault?: boolean) {
+    await this.events.publish(DomainEvents.USER_ADDRESS_UPDATED, { userId, addressId, action, isDefault });
   }
 
   private async assertAddressOwner(userId: string, addressId: string): Promise<void> {

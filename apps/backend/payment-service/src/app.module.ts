@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { EventBusModule } from '@omnicommerce/events';
 import { ConfigModule } from '@nestjs/config';
 import config from './config';
 import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
+    EventBusModule.forRoot({ serviceName: 'payment-service' }),
     ConfigModule.forRoot({
       isGlobal: true,
       load: config,
