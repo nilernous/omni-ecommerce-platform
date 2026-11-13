@@ -1,19 +1,33 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { NotificationChannel, NotificationRecord, NotificationStore } from './notification.store';
+import { NotificationDispatcher } from './notification.dispatcher';
 
-type NotificationChannel = 'EMAIL' | 'SMS' | 'PUSH' | 'IN_APP';
+export interface SendNotificationInput {
+  userId?: string;
+  to?: string;
+  subject?: string;
+  template?: string;
+  body?: string;
+  payload?: unknown;
+}
 
 @Injectable()
 export class NotificationService {
-  private notifications = new Map<string, any>();
-  private retryQueue: any[] = [];
+  constructor(
+    private readonly store: NotificationStore,
+    private readonly dispatcher: NotificationDispatcher,
+  ) {}
 
-  async send(channel: NotificationChannel, data: any): Promise<any> {
+  /**
+   * Records a notification and hands it to the RabbitMQ dispatcher (NOTIF-BR-06).
+   * IN_APP notifications are only stored: the client reads them via notification.list_by_user.
+   */
+  async send(channel: NotificationChannel, data: SendNotificationInput): Promise<NotificationRecord> {
     if (!data.userId && !data.to) {
       throw new BadRequestException('Notification recipient is required');
     }
 
-    const notification = {
-      id: 'NOTIF-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    const record = this.store.create({
       channel,
       userId: data.userId,
       to: data.to,
@@ -21,48 +35,49 @@ export class NotificationService {
       template: data.template,
       body: data.body,
       payload: data.payload,
-      readAt: null,
-      status: 'SENT',
-      attempts: 1,
-      createdAt: new Date().toISOString(),
-    };
+      status: channel === 'IN_APP' ? 'SENT' : 'PENDING',
+    });
 
-    this.notifications.set(notification.id, notification);
-    return notification;
-  }
-
-  async listByUser(userId: string): Promise<any[]> {
-    return Array.from(this.notifications.values()).filter((notification) => notification.userId === userId);
-  }
-
-  async markRead(id: string, userId?: string): Promise<any> {
-    const notification = this.notifications.get(id);
-    if (!notification) {
-      throw new NotFoundException('Notification not found');
+    if (channel !== 'IN_APP') {
+      await this.dispatcher.enqueue({
+        notificationId: record.id,
+        channel,
+        to: record.to,
+        userId: record.userId,
+        subject: record.subject,
+        body: record.body,
+      });
     }
+    return record;
+  }
+
+  async listByUser(userId: string): Promise<NotificationRecord[]> {
+    return this.store.listByUser(userId);
+  }
+
+  async markRead(id: string, userId?: string): Promise<NotificationRecord> {
+    const notification = this.store.get(id);
     if (userId && notification.userId !== userId) {
       throw new BadRequestException('Notification does not belong to user');
     }
-
-    const updated = { ...notification, readAt: new Date().toISOString() };
-    this.notifications.set(id, updated);
-    return updated;
+    return this.store.update(id, { readAt: new Date().toISOString() });
   }
 
-  async queueRetry(notificationId: string, reason?: string): Promise<any> {
-    const notification = this.notifications.get(notificationId);
-    if (!notification) {
-      throw new NotFoundException('Notification not found');
+  /** Manually re-queues a FAILED notification (e.g. after it was inspected in the DLQ). */
+  async queueRetry(notificationId: string, reason?: string): Promise<NotificationRecord> {
+    const notification = this.store.get(notificationId);
+    if (notification.channel === 'IN_APP') {
+      throw new BadRequestException('In-app notifications are not dispatched');
     }
-
-    const retry = {
+    const updated = this.store.update(notificationId, { status: 'PENDING', errorMessage: reason });
+    await this.dispatcher.enqueue({
       notificationId,
-      reason,
-      attempts: notification.attempts + 1,
-      queuedAt: new Date().toISOString(),
-    };
-    this.retryQueue.push(retry);
-    this.notifications.set(notificationId, { ...notification, status: 'RETRY_QUEUED', attempts: retry.attempts });
-    return retry;
+      channel: notification.channel,
+      to: notification.to,
+      userId: notification.userId,
+      subject: notification.subject,
+      body: notification.body,
+    });
+    return updated;
   }
 }

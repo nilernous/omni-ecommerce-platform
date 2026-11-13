@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DomainEvents } from '@omnicommerce/constants';
+import { DomainEventPublisher } from '@omnicommerce/events';
 
 export interface MediaAsset {
   id: string;
@@ -14,6 +16,8 @@ export interface MediaAsset {
 
 @Injectable()
 export class MediaService {
+  constructor(private readonly events: DomainEventPublisher) {}
+
   private assets = new Map<string, MediaAsset>();
   private readonly allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
   private readonly maxBytes = 10 * 1024 * 1024;
@@ -43,6 +47,13 @@ export class MediaService {
     };
 
     this.assets.set(id, asset);
+    await this.events.publish(DomainEvents.MEDIA_UPLOADED, {
+      mediaId: id,
+      ownerId: asset.ownerId,
+      url: asset.url,
+      mimeType: asset.mimeType,
+      thumbnails: asset.thumbnails,
+    }); // MED-BR-08
     return asset;
   }
 
@@ -58,6 +69,7 @@ export class MediaService {
     const asset = await this.getMetadata(id);
     const deleted = { ...asset, deletedAt: new Date().toISOString() };
     this.assets.set(id, deleted);
+    await this.events.publish(DomainEvents.MEDIA_DELETED, { mediaId: id }); // MED-BR-09
     return { deleted: true, id };
   }
 }

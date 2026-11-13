@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { DomainEvents } from '@omnicommerce/constants';
+import { DomainEventPublisher } from '@omnicommerce/events';
 
 export interface CartItem {
   variantId: string;
@@ -19,6 +21,8 @@ export class CartService {
   private readonly maxDistinctItems = 50;
   private readonly maxItemQuantity = 99;
   private carts = new Map<string, CartItem[]>();
+
+  constructor(private readonly events: DomainEventPublisher) {}
 
   async getCart(ownerId: string, isGuest = false): Promise<CartView> {
     return this.toCartView(this.resolveOwnerKey(ownerId, isGuest));
@@ -43,6 +47,7 @@ export class CartService {
     }
 
     this.carts.set(ownerKey, cart);
+    await this.events.publish(DomainEvents.CART_ITEM_ADDED, { ownerKey, variantId: item.variantId, quantity: item.quantity }); // CART-BR-10
     return this.toCartView(ownerKey);
   }
 
@@ -90,8 +95,30 @@ export class CartService {
   }
 
   async clearCart(ownerId: string, isGuest = false): Promise<boolean> {
-    this.carts.delete(this.resolveOwnerKey(ownerId, isGuest));
+    const ownerKey = this.resolveOwnerKey(ownerId, isGuest);
+    const existed = this.carts.delete(ownerKey);
+    if (existed) {
+      await this.events.publish(DomainEvents.CART_CLEARED, { ownerKey }); // CART-BR-11
+    }
     return true;
+  }
+
+  /** CART-BR-12: refresh cached unit prices of items whose variant price changed. Returns updated line count. */
+  async repriceVariants(variants: Array<{ variantId: string; price: number }>): Promise<number> {
+    const prices = new Map(variants.map((variant) => [variant.variantId, variant.price]));
+    let updated = 0;
+    for (const [ownerKey, items] of this.carts) {
+      const repriced = items.map((item) => {
+        const price = prices.get(item.variantId);
+        if (price === undefined || price === item.unitPrice) {
+          return item;
+        }
+        updated++;
+        return { ...item, unitPrice: price };
+      });
+      this.carts.set(ownerKey, repriced);
+    }
+    return updated;
   }
 
   private resolveOwnerKey(ownerId: string, isGuest = false): string {

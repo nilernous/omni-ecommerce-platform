@@ -38,8 +38,7 @@ This document applies to every backend microservice within the OmniCommerce ecos
 
 Examples include:
 
-- Authentication Service
-- User Service
+- Identity Service
 - Catalog Service
 - Pricing Service
 - Inventory Service
@@ -683,8 +682,7 @@ Core services implement the primary business capabilities of the OmniCommerce pl
 
 Examples include:
 
-- Authentication Service
-- User Service
+- Identity Service
 - Catalog Service
 - Pricing Service
 - Inventory Service

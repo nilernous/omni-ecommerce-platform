@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -85,7 +85,7 @@ Processes user credential authentication by verifying account status, validating
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -100,8 +100,8 @@ Processes user credential authentication by verifying account status, validating
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -116,8 +116,8 @@ User Credential Login is initiated via incoming client API request or internal m
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -126,13 +126,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Lockout Verification**: Auth Service checks Redis for active login failure locks matching client IP and email address (`AUTH-BR-11`).
+**Lockout Verification**: Identity Service checks Redis for active login failure locks matching client IP and email address (`AUTH-BR-11`).
 
 ---
 
 ## Step 2
 
-**Account Retrieval**: Queries `auth_db` for account record. Returns 401 if user not found.
+**Account Retrieval**: Queries `identity_db` for account record. Returns 401 if user not found.
 
 ---
 
@@ -156,7 +156,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 6
 
-**Session Persistence**: Stores hashed refresh token with device metadata in `auth_db`.
+**Session Persistence**: Stores hashed refresh token with device metadata in `identity_db`.
 
 ---
 
@@ -257,9 +257,9 @@ sequenceDiagram
   autonumber
   actor Client as Client App (Web/Mobile)
   participant Gateway as API Gateway (:3000)
-  participant Auth as Auth Service (:3001)
+  participant Auth as Identity Service · Auth (:3001)
   participant Redis as Redis (session_cache)
-  participant DB as PostgreSQL (auth_db)
+  participant DB as PostgreSQL (identity_db)
 
   Client->>Gateway: POST /api/v1/auth/login (email, password)
   Gateway->>Auth: Forward Login Request
@@ -304,7 +304,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -532,7 +532,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -545,7 +545,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

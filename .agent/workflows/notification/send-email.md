@@ -140,13 +140,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 3
 
-**Queue Push**: Pushes email job to BullMQ Redis queue (`NOTIF-BR-06`).
+**Queue Push**: Publishes email dispatch message to RabbitMQ exchange `omni.notification.dispatch` with routing key `email` (`NOTIF-BR-06`).
 
 ---
 
 ## Step 4
 
-**SMTP Dispatch**: BullMQ worker dispatches email via Nodemailer / SendGrid.
+**SMTP Dispatch**: Email dispatch consumer reads from `omni.notification.email-dispatch.queue` and dispatches email via Nodemailer / SendGrid.
 
 ---
 
@@ -215,19 +215,20 @@ sequenceDiagram
   autonumber
   actor Broker as RabbitMQ Event Bus
   participant NotifSvc as Notification Service (:3013)
-  participant RedisQueue as Redis (BullMQ Queue)
-  participant Worker as BullMQ Worker
+  participant DispatchQ as RabbitMQ (email-dispatch.queue)
+  participant Worker as Email Dispatch Consumer
   participant SMTP as SMTP Gateway (SendGrid / Nodemailer)
   participant DB as PostgreSQL (notification_db)
 
   Broker->>NotifSvc: Deliver Event (`auth.user.registered` / `order.created` / `payment.completed`)
   NotifSvc->>NotifSvc: Check Transactional vs Marketing Opt-Out (NOTIF-BR-04, NOTIF-BR-05)
   NotifSvc->>NotifSvc: Render HTML Handlebars Email Template (NOTIF-BR-01)
-  NotifSvc->>RedisQueue: Push Email Job to Queue (NOTIF-BR-06)
-  Worker->>RedisQueue: Pop Email Job
+  NotifSvc->>DispatchQ: Publish Email Dispatch Message (routing key: email) (NOTIF-BR-06)
+  DispatchQ->>Worker: Deliver Email Dispatch Message
   Worker->>SMTP: Send Email (to, subject, html)
   SMTP-->>Worker: SMTP 250 OK (Message ID)
   Worker->>DB: INSERT INTO notification_logs (type: EMAIL, status: DELIVERED)
+  Worker->>DispatchQ: ACK Message
 ```
 
 ---

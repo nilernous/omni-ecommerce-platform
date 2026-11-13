@@ -29,16 +29,14 @@ This document applies specifically to the **API Gateway** (`gateway` / `api-gate
 
 It defines how the gateway receives external REST HTTP requests and bridges them to downstream domain microservices, including:
 
-- Authentication Service (`auth-service`)
-- User Service (`user-service`)
-- Product / Catalog Service (`product-service`)
+- Identity Service (`identity-service`) — Auth & User modules
+- Product / Catalog Service (`product-service`) — Catalog & Review modules
 - Inventory Service (`inventory-service`)
 - Cart Service (`cart-service`)
 - Order Service (`order-service`)
 - Payment Service (`payment-service`)
 - Shipping Service (`shipping-service`)
 - Promotion / Coupon Service (`promotion-service`)
-- Review Service (`review-service`)
 - Notification Service (`notification-service`)
 
 This document does not cover internal domain database schemas or microservice internal business logic.
@@ -342,7 +340,7 @@ Contains authentication-specific gateway logic:
 - `dto/`: Login, Register, Refresh Token request/response DTOs.
 - `guards/`: Custom auth guards (e.g., Local Auth, Refresh Token Guard).
 - `strategies/`: Passport strategies (`jwt.strategy.ts`, `local.strategy.ts`, `refresh.strategy.ts`).
-- `services/`: Gateway auth service orchestrating token validation or forwarding to Auth Microservice.
+- `services/`: Gateway auth service orchestrating token validation or forwarding to the Identity Service (Auth module).
 - `auth.module.ts`: Auth module declaration.
 
 ### Business Domain Gateway Modules (`src/modules/`)

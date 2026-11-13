@@ -1,35 +1,7 @@
-import { DomainEvents } from '@omnicommerce/constants';
-
-export interface BaseDomainEvent<T = any> {
-  eventId: string;
-  eventType: DomainEvents;
-  timestamp: string;
-  correlationId?: string;
-  payload: T;
-}
-
-export interface UserRegisteredPayload {
-  userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-}
-
-export interface OrderCreatedPayload {
-  orderId: string;
-  orderNumber: string;
-  userId: string;
-  totalAmount: number;
-  items: Array<{
-    variantId: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
-}
-
-export interface PaymentCompletedPayload {
-  paymentId: string;
-  orderId: string;
-  transactionId: string;
-  amount: number;
-}
+export * from './envelope';
+export * from './payloads';
+export * from './rabbitmq/topology';
+export * from './rabbitmq/domain-event.publisher';
+export * from './rabbitmq/domain-event.server';
+export * from './rabbitmq/event-bus.module';
+export * from './rabbitmq/bootstrap';

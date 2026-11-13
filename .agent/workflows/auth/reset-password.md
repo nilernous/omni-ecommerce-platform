@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -86,7 +86,7 @@ Resets user account password using validated token and revokes all active user s
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -101,8 +101,8 @@ Resets user account password using validated token and revokes all active user s
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -117,8 +117,8 @@ Reset Password Submission is initiated via incoming client API request or intern
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -133,7 +133,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 2
 
-**Token Verification**: Queries `auth_db` ensuring token exists, is unredeemed, and `expiresAt > NOW` (`AUTH-BR-12`).
+**Token Verification**: Queries `identity_db` ensuring token exists, is unredeemed, and `expiresAt > NOW` (`AUTH-BR-12`).
 
 ---
 
@@ -220,8 +220,8 @@ sequenceDiagram
   autonumber
   actor Client as Customer / Seller
   participant Gateway as API Gateway (:3000)
-  participant Auth as Auth Service (:3001)
-  participant DB as PostgreSQL (auth_db)
+  participant Auth as Identity Service · Auth (:3001)
+  participant DB as PostgreSQL (identity_db)
   participant Broker as RabbitMQ Event Bus
 
   Client->>Gateway: POST /api/v1/auth/reset-password (token, newPassword)
@@ -259,7 +259,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -489,7 +489,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -502,7 +502,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

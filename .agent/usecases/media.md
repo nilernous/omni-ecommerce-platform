@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/media-service/`  
 > **Default Port:** `3011`  
-> **Business Rules Reference:** [media.md](../business/media.md)  
+> **Business Rules Reference:** [media.md](../business-rules/media.md)  
 
 ---
 

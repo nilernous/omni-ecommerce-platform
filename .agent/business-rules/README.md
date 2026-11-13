@@ -1,6 +1,6 @@
 # OmniCommerce Business Rules Index
 
-> **Target Directory:** `.agent/business/`  
+> **Target Directory:** `.agent/business-rules/`  
 > **Purpose:** Central repository of business rules, validation constraints, domain state machines, entity boundaries, and event contracts for all OmniCommerce backend services.  
 > **Version:** 1.0.0  
 > **Last Updated:** July 2026  
@@ -9,12 +9,12 @@
 
 ## Service Business Rules Index
 
-The business rules of the OmniCommerce platform are split by core microservice:
+The business rules of the OmniCommerce platform are split by business domain. The platform runs **12 microservices**. Several domains share one service: `identity-service` hosts the Auth and User domains, and `product-service` hosts the Product and Review domains. Rule ID prefixes (`AUTH-BR`, `USER-BR`, `REV-BR`) are unchanged.
 
 | Service Name | File Link | Port | Main Responsibility |
 |---|---|---|---|
-| **Auth Service** | [auth.md](./auth.md) | `3001` | Identity management, registration, JWT issuance/refresh, password hashing, session revocation. |
-| **User Service** | [user.md](./user.md) | `3002` | User profile attributes, delivery addresses, customer preferences, RBAC role definitions. |
+| **Identity Service** — Auth domain | [auth.md](./auth.md) | `3001` | Identity management, registration, JWT issuance/refresh, password hashing, session revocation. |
+| **Identity Service** — User domain | [user.md](./user.md) | `3001` | User profile attributes, delivery addresses, customer preferences, RBAC role definitions. |
 | **Product Service** | [product.md](./product.md) | `3003` | Product catalog, SKU management, categories, brands, variants, seller approval workflow. |
 | **Inventory Service** | [inventory.md](./inventory.md) | `3004` | Stock level tracking across warehouses, stock reservations during checkout, safety stock thresholds. |
 | **Cart Service** | [cart.md](./cart.md) | `3005` | Active shopping cart operations, guest carts, quantity updates, price caching, TTL management. |
@@ -22,7 +22,7 @@ The business rules of the OmniCommerce platform are split by core microservice:
 | **Payment Service** | [payment.md](./payment.md) | `3007` | Gateway integrations (Stripe, PayPal), transaction logs, webhook validation, refund handling. |
 | **Shipping Service** | [shipping.md](./shipping.md) | `3008` | Carrier integrations, rate calculations, shipping label generation, tracking status updates. |
 | **Promotion Service** | [promotion.md](./promotion.md) | `3009` | Coupon discount validation, flash sale rules, promotional campaigns, voucher usage limits. |
-| **Review Service** | [review.md](./review.md) | `3010` | Verified customer product reviews, rating aggregates, review moderation workflow. |
+| **Product Service** — Review domain | [review.md](./review.md) | `3003` | Verified customer product reviews, rating aggregates, review moderation workflow. |
 | **Media Service** | [media.md](./media.md) | `3011` | File upload handling, image resizing, CDN asset distribution, asset deletion rules. |
 | **Search Service** | [search.md](./search.md) | `3012` | Elasticsearch product indexing, full-text search, auto-complete, faceted search filters. |
 | **Notification Service**| [notification.md](./notification.md)| `3013` | Email delivery, SMS alerts, Firebase mobile push notifications, template rendering. |

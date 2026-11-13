@@ -48,8 +48,8 @@ The platform recognizes five primary identity roles. The table below outlines de
 
 ## 4. Full Permission Directory by Domain
 
-### 4.1 Auth Service (`auth`)
-*Service Path:* `apps/backend/auth-service/` | *Port:* `3001`
+### 4.1 Identity Service — Auth Module (`auth`)
+*Service Path:* `apps/backend/identity-service/` | *Port:* `3001`
 
 | Permission String | Name | Description | Allowed Roles | Ref Business Rule / Endpoint |
 |---|---|---|---|---|
@@ -64,8 +64,8 @@ The platform recognizes five primary identity roles. The table below outlines de
 
 ---
 
-### 4.2 User Service (`user`)
-*Service Path:* `apps/backend/user-service/` | *Port:* `3002`
+### 4.2 Identity Service — User Module (`user`)
+*Service Path:* `apps/backend/identity-service/` | *Port:* `3001`
 
 | Permission String | Name | Description | Allowed Roles | Ref Business Rule / Endpoint |
 |---|---|---|---|---|
@@ -191,8 +191,8 @@ The platform recognizes five primary identity roles. The table below outlines de
 
 ---
 
-### 4.10 Review Service (`review`)
-*Service Path:* `apps/backend/review-service/` | *Port:* `3010`
+### 4.10 Product Service — Review Module (`review`)
+*Service Path:* `apps/backend/product-service/` | *Port:* `3003`
 
 | Permission String | Name | Description | Allowed Roles | Ref Business Rule / Endpoint |
 |---|---|---|---|---|
@@ -388,7 +388,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
 ## 6. Audit & Security Guidelines
 
-1. **Token Invalidation on Permission Change**: When an administrator updates a user's roles (`user:role_assign`), the Auth Service immediately revokes all active refresh tokens for that user ID and adds the current access token `jti` to the Redis blacklist (`blacklist:jti:{id}`).
+1. **Token Invalidation on Permission Change**: When an administrator updates a user's roles (`user:role_assign`), the Identity Service immediately revokes all active refresh tokens for that user ID and adds the current access token `jti` to the Redis blacklist (`blacklist:jti:{id}`).
 2. **Least Privilege Principle**: API Gateway and BFF routes must reject requests before hitting microservices if required permission headers are absent.
 3. **Audit Logging**: Any execution of actions requiring `ADMIN` or `SUPER_ADMIN` permissions MUST log an immutable audit trail entry containing `userId`, `permission`, `ipAddress`, `timestamp`, and `resourceId`.
 

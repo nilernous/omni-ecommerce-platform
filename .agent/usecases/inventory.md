@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/inventory-service/`  
 > **Default Port:** `3004`  
-> **Business Rules Reference:** [inventory.md](../business/inventory.md)  
+> **Business Rules Reference:** [inventory.md](../business-rules/inventory.md)  
 
 ---
 
@@ -93,7 +93,7 @@
 - **Trigger**: Internal stock deduction logic evaluates `Available Quantity < 5`.
 - **Main Success Scenario**:
   1. Inventory Service constructs `inventory.low_stock` event payload (`sku`, `availableQuantity`, `warehouseId`).
-  2. Service publishes event to RabbitMQ topic exchange (`omni.events.topic`).
+  2. Service publishes event to RabbitMQ topic exchange (`omni.domain.events`).
   3. Notification Service consumes event and sends low-stock alert email to merchant/admin.
 - **Business Rules Referenced**: `INV-BR-03`, `INV-BR-12`.
 - **Postconditions**: Event `inventory.low_stock` published to message broker.

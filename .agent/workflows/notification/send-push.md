@@ -124,7 +124,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Token Fetching**: Queries User Service for user's active FCM device tokens.
+**Token Fetching**: Queries Identity Service for user's active FCM device tokens.
 
 ---
 
@@ -199,7 +199,7 @@ sequenceDiagram
   autonumber
   actor Broker as RabbitMQ Event Bus
   participant NotifSvc as Notification Service (:3013)
-  participant UserSvc as User Service (:3002)
+  participant UserSvc as Identity Service · User (:3001)
   participant FCM as Firebase Cloud Messaging (FCM)
 
   Broker->>NotifSvc: Deliver Event (`order.created` / `order.shipped` / `order.delivered`)

@@ -11,7 +11,7 @@ status: Approved
 
 domain: User
 
-target_service: user-service
+target_service: identity-service
 
 owner: User Team
 
@@ -84,7 +84,7 @@ Updates existing delivery address details in user profile.
 | Property | Value |
 |----------|--------|
 | Domain | User |
-| Target Service | user-service |
+| Target Service | identity-service |
 | Primary Actor | Authenticated Customer |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -99,8 +99,8 @@ Updates existing delivery address details in user profile.
 
 ## Secondary Actors
 
-- user-service
-- Database (user_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -115,8 +115,8 @@ Update Delivery Address is initiated via incoming client API request or internal
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (user-service) is online and responsive.
-- [ ] Database connection to user_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -137,7 +137,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 3
 
-**Persistence**: Updates address details in `user_db` (`USER-BR-10`).
+**Persistence**: Updates address details in `identity_db` (`USER-BR-10`).
 
 ---
 
@@ -205,8 +205,8 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Client as Customer App
-  participant UserSvc as User Service (:3002)
-  participant DB as PostgreSQL (user_db)
+  participant UserSvc as Identity Service · User (:3001)
+  participant DB as PostgreSQL (identity_db)
 
   Client->>UserSvc: PUT /api/v1/users/addresses/{id} (Address Payload)
   UserSvc->>DB: Query SELECT * FROM addresses WHERE id = ? AND user_id = ?
@@ -240,7 +240,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in user_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -466,7 +466,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- user-service
+- identity-service
 
 ---
 
@@ -479,7 +479,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (user_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

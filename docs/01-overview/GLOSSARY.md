@@ -191,14 +191,15 @@ An open specification and tooling framework used in NestJS services to document 
 
 # 6. Business Domains & Microservices
 
-### Authentication Service (`apps/backend/auth-service`)
-Microservice managing identity, login, registration, password hashing, JWT generation, refresh tokens, and user role assignments.
+### Identity Service (`apps/backend/identity-service`)
+Microservice owning both identity domains in one database (`identity_db`):
+- **Auth module** (`src/modules/auth`): login, registration, password hashing, JWT generation, refresh tokens, account lockout.
+- **User module** (`src/modules/user`): customer profiles, delivery addresses, user preferences, and role assignments.
 
-### User Service (`apps/backend/user-service`)
-Microservice managing customer profiles, addresses, user preferences, and merchant profile metadata.
+Formerly two services (`auth-service`, `user-service`). They were merged because JWT claims need roles owned by the user domain and registration must create credentials and profile atomically.
 
 ### Product Catalog Service (`apps/backend/product-service`)
-Microservice managing master product details, SKUs, categories, brands, variants, attributes, and product specifications.
+Microservice managing master product details, SKUs, categories, brands, variants, attributes, and product specifications. It also hosts the **Review module** (`src/modules/review`, formerly `review-service`): verified-purchase reviews, moderation, and rating aggregates stored in `product_db`.
 
 ### Inventory Service (`apps/backend/inventory-service`)
 Microservice managing warehouse stock levels, stock reservations during checkout, safety stock thresholds, and stock updates.

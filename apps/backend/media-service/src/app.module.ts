@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
+import { EventBusModule } from '@omnicommerce/events';
 import { MediaModule } from './modules/media/media.module';
 
 @Module({
-  imports: [MediaModule],
+  imports: [
+    EventBusModule.forRoot({ serviceName: 'media-service' }),
+    MediaModule,
+  ],
 })
 export class AppModule {}

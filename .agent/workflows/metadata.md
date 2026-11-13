@@ -303,7 +303,7 @@ The service responsible for executing the workflow.
 Examples
 
 ```
-auth-service
+identity-service
 
 order-service
 

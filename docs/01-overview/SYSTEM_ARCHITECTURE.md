@@ -1400,7 +1400,7 @@ Each business domain is implemented as an independent microservice with its own 
 
 ## Example Services
 
-Authentication Service
+Identity Service
 
 Responsible for:
 
@@ -2125,15 +2125,9 @@ Services communicate through REST APIs and asynchronous events.
 
 Examples include:
 
-Authentication Service
+Identity Service
 
-Responsible for identity management.
-
----
-
-User Service
-
-Responsible for user profiles and customer information.
+Responsible for identity management (Auth module) and user profiles and customer information (User module).
 
 ---
 

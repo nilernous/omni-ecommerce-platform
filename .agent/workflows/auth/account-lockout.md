@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -81,7 +81,7 @@ Enforces security protection by tracking failed login attempts and locking accou
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -96,8 +96,8 @@ Enforces security protection by tracking failed login attempts and locking accou
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -112,8 +112,8 @@ Account Lockout Handling is initiated via incoming client API request or interna
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -122,7 +122,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Failure Counting**: Upon invalid password attempt, Auth Service increments Redis failure key `login_failures:{ip}:{email}` with 15-minute window TTL.
+**Failure Counting**: Upon invalid password attempt, Identity Service increments Redis failure key `login_failures:{ip}:{email}` with 15-minute window TTL.
 
 ---
 
@@ -202,7 +202,7 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Client as Unauthenticated Client / Attacker
-  participant Auth as Auth Service (:3001)
+  participant Auth as Identity Service · Auth (:3001)
   participant Redis as Redis (session_cache)
 
   Client->>Auth: POST /api/v1/auth/login (Invalid Credentials Attempt)
@@ -235,7 +235,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -455,7 +455,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -468,7 +468,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

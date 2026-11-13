@@ -35,7 +35,7 @@ export class ProductRpcController {
 
   @MessagePattern('product.update')
   async update(@Payload() data: { id: string; dto?: Partial<CreateProductDto>; [key: string]: any }): Promise<any> {
-    return this.productService.update(data.id, data.dto || data);
+    return this.productService.update(data.id, (data.dto ?? data) as Partial<CreateProductDto>);
   }
 
   @MessagePattern('product.approve')

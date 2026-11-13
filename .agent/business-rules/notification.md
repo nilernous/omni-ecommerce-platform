@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/notification-service/`  
 > **Default Port:** `3013`  
-> **Primary Storage:** Redis (`notification_queue`) + PostgreSQL (`notification_db`)  
+> **Primary Storage:** PostgreSQL (`notification_db`) + RabbitMQ (dispatch & retry queues)  
 > **Documentation Ref:** [BACKEND_ARCHITECTURE.md](../../docs/02-backend/BACKEND_ARCHITECTURE.md), [API_ARCHITECTURE.md](../../docs/02-backend/API_ARCHITECTURE.md)  
 
 ---
@@ -21,11 +21,11 @@ The **Notification Service** handles multi-channel communication dispatching (Em
 
 ### User Preference Enforcement
 - **NOTIF-BR-04: Mandatory Transactional Messages**: Transactional notifications (Password Reset, Order Placed, Payment Receipts) CANNOT be unsubscribed or opted out by users.
-- **NOTIF-BR-05: Marketing Preference Check**: Promotional notifications (Flash Sales, Discounts) MUST check User Service preferences (`marketingEnabled = true`). If user opted out, message is skipped.
+- **NOTIF-BR-05: Marketing Preference Check**: Promotional notifications (Flash Sales, Discounts) MUST check Identity Service preferences (`marketingEnabled = true`). If user opted out, message is skipped.
 
 ### Retry & Delivery Guarantees
-- **NOTIF-BR-06: Asynchronous Queueing**: Outbound notifications are queued in Redis via BullMQ to decouple dispatching from event emission.
-- **NOTIF-BR-07: Dispatch Retry Strategy**: Failed delivery attempts retry **3 times** with exponential backoff delays (10s, 30s, 90s) before moving to Dead Letter Queue (DLQ).
+- **NOTIF-BR-06: Asynchronous Queueing**: Outbound notifications are published as dispatch messages to the RabbitMQ topic exchange `omni.notification.dispatch` (routing keys `email`, `sms`, `push`) and consumed from durable per-channel queues (`omni.notification.email-dispatch.queue`, `omni.notification.sms-dispatch.queue`, `omni.notification.push-dispatch.queue`) to decouple dispatching from event emission.
+- **NOTIF-BR-07: Dispatch Retry Strategy**: Failed delivery attempts retry **3 times** with exponential backoff delays (10s, 30s, 90s) before moving to Dead Letter Queue (DLQ). Retries use RabbitMQ delay queues (`omni.notification.retry-10s.queue`, `retry-30s`, `retry-90s`) with `x-message-ttl` and `x-dead-letter-exchange = omni.notification.dispatch`, so expired messages return to their channel queue. The attempt count is carried in the `x-retry-count` header. After the 3rd failed retry the message is published to `omni.dead.letter` (routing key `dlq.notification`) and lands in `omni.notification.dlq`.
 
 ---
 

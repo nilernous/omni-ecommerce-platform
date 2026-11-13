@@ -1,12 +1,17 @@
-export const AUTH_QUEUE = 'auth_queue';
-export const USER_QUEUE = 'user_queue';
-export const PRODUCT_QUEUE = 'product_queue';
-export const CATEGORY_QUEUE = 'category_queue';
-export const INVENTORY_QUEUE = 'inventory_queue';
-export const CART_QUEUE = 'cart_queue';
-export const ORDER_QUEUE = 'order_queue';
-export const PAYMENT_QUEUE = 'payment_queue';
-export const SHIPPING_QUEUE = 'shipping_queue';
-export const COUPON_QUEUE = 'coupon_queue';
-export const REVIEW_QUEUE = 'review_queue';
-export const NOTIFICATION_QUEUE = 'notification_queue';
+import { RPC_QUEUES } from '@omnicommerce/constants';
+
+// RPC queues each backend service consumes (single source of truth: @omnicommerce/constants).
+// identity-service owns the auth and user domains.
+export const IDENTITY_QUEUE = RPC_QUEUES.IDENTITY;
+// product-service owns the catalog (products + categories) and review domains.
+export const PRODUCT_QUEUE = RPC_QUEUES.PRODUCT;
+export const CATEGORY_QUEUE = RPC_QUEUES.PRODUCT;
+export const INVENTORY_QUEUE = RPC_QUEUES.INVENTORY;
+export const CART_QUEUE = RPC_QUEUES.CART;
+export const ORDER_QUEUE = RPC_QUEUES.ORDER;
+export const PAYMENT_QUEUE = RPC_QUEUES.PAYMENT;
+export const SHIPPING_QUEUE = RPC_QUEUES.SHIPPING;
+// Coupons are served by promotion-service.
+export const COUPON_QUEUE = RPC_QUEUES.PROMOTION;
+export const NOTIFICATION_QUEUE = RPC_QUEUES.NOTIFICATION;
+export const ANALYTICS_QUEUE = RPC_QUEUES.ANALYTICS;

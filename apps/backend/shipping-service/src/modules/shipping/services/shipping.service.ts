@@ -1,11 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@omnicommerce/database';
+import { DomainEvents, ShippingStatus } from '@omnicommerce/constants';
+import { DomainEventPublisher, ShipmentPayload } from '@omnicommerce/events';
 
 @Injectable()
 export class ShippingService {
   private trackingEvents = new Map<string, any[]>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: DomainEventPublisher,
+  ) {}
+
+  /** SHIP-BR-18: a paid order gets a PREPARING shipment awaiting merchant fulfillment (idempotent). */
+  async prepareForOrder(orderId: string, carrier = 'STANDARD'): Promise<any> {
+    const existing = await this.prisma.shipping.findFirst({ where: { orderId } });
+    return existing ?? this.createShipment(orderId, carrier);
+  }
 
   async calculateRates(data: any): Promise<any[]> {
     const weight = Number(data.weight || 1);
@@ -39,7 +50,7 @@ export class ShippingService {
         carrier,
         trackingNumber,
         shippingCost: 15.0,
-        status: 'IN_TRANSIT',
+        status: ShippingStatus.PREPARING, // becomes IN_TRANSIT on carrier pickup (shipping.dispatched)
       },
     });
   }
@@ -51,10 +62,12 @@ export class ShippingService {
   }
 
   async generateLabel(orderId: string, carrier = 'STANDARD'): Promise<any> {
-    const shipment = await this.createShipment(orderId, carrier);
+    const shipment = (await this.prisma.shipping.findFirst({ where: { orderId } })) ?? (await this.createShipment(orderId, carrier));
+    const labelUrl = `/shipping-labels/${shipment.id}.pdf`;
+    await this.events.publish(DomainEvents.SHIPPING_LABEL_CREATED, { ...this.toPayload(shipment), labelUrl }); // SHIP-BR-15
     return {
       ...shipment,
-      labelUrl: `/shipping-labels/${shipment.id}.pdf`,
+      labelUrl,
       labelFormat: 'PDF',
     };
   }
@@ -69,6 +82,7 @@ export class ShippingService {
       where: { id: shipment.id },
       data: { status },
     });
+    await this.publishStatusChange(shipment.status, updatedShipment);
 
     const event = {
       trackingNumber,
@@ -89,10 +103,33 @@ export class ShippingService {
       throw new NotFoundException('Shipment not found');
     }
 
-    return this.prisma.shipping.update({
+    const updated = await this.prisma.shipping.update({
       where: { id: shipment.id },
-      data: { status: 'DELIVERED' },
+      data: { status: ShippingStatus.DELIVERED },
     });
+    await this.publishStatusChange(shipment.status, updated);
+    return updated;
+  }
+
+  /** SHIP-BR-16 (carrier pickup) and SHIP-BR-17 (delivery); published once per transition. */
+  private async publishStatusChange(previous: string, shipment: any): Promise<void> {
+    if (previous === shipment.status) {
+      return;
+    }
+    if (shipment.status === ShippingStatus.IN_TRANSIT) {
+      await this.events.publish(DomainEvents.SHIPPING_DISPATCHED, this.toPayload(shipment));
+    } else if (shipment.status === ShippingStatus.DELIVERED) {
+      await this.events.publish(DomainEvents.SHIPPING_DELIVERED, this.toPayload(shipment));
+    }
+  }
+
+  private toPayload(shipment: any): ShipmentPayload {
+    return {
+      shipmentId: shipment.id,
+      orderId: shipment.orderId,
+      carrier: shipment.carrier,
+      trackingNumber: shipment.trackingNumber,
+    };
   }
 
   async getTrackingEvents(trackingNumber: string): Promise<any[]> {

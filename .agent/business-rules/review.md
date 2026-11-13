@@ -1,14 +1,15 @@
-# Review Service Business Rules
+# Review Domain Business Rules (Product Service)
 
-> **Service Path:** `apps/backend/review-service/`  
-> **Default Port:** `3010`  
-> **Primary Storage:** PostgreSQL (`review_db`)  
+> **Service Path:** `apps/backend/product-service/`  
+> **Default Port:** `3003`  
+> **Module:** `src/modules/review` (shares `product_db` with the Product module)  
+> **Primary Storage:** PostgreSQL (`product_db`)  
 > **Documentation Ref:** [BACKEND_ARCHITECTURE.md](../../docs/02-backend/BACKEND_ARCHITECTURE.md), [API_ARCHITECTURE.md](../../docs/02-backend/API_ARCHITECTURE.md)  
 
 ---
 
 ## 1. Domain Overview & Purpose
-The **Review Service** manages customer product reviews, star ratings (1 to 5 stars), verified purchase badges, review moderation, and aggregate product rating metrics.
+The **Review module of the Product Service** manages customer product reviews, star ratings (1 to 5 stars), verified purchase badges, review moderation, and aggregate product rating metrics.
 
 ---
 
@@ -30,7 +31,7 @@ The **Review Service** manages customer product reviews, star ratings (1 to 5 st
 
 ### Aggregate Metrics Rules
 - **REV-BR-08: Average Rating Formula**: `averageRating = SUM(ratings) / count(reviews)` rounded to 1 decimal place.
-- **REV-BR-09: Asynchronous Metric Sync**: Product average rating and review counts re-compute asynchronously upon approval of any new review and update Product Service.
+- **REV-BR-09: Transactional Metric Sync**: When a review is approved, the product's `averageRating` and `reviewCount` are recomputed and written in the same `product_db` transaction as the review status change (Review and Product are modules of the same service, so no cross-service call or event is needed).
 
 ---
 
@@ -48,7 +49,7 @@ The **Review Service** manages customer product reviews, star ratings (1 to 5 st
 
 ### Emitted Events
 - **REV-BR-10: Event `review.submitted`**: Emitted when a customer posts a review.
-- **REV-BR-11: Event `review.approved`**: Emitted when review is approved. Triggers Product Service average rating update.
+- **REV-BR-11: Event `review.approved`**: Emitted when a review is approved, for downstream consumers. The product rating update does not depend on this event; it happens in-transaction (`REV-BR-09`).
 
 ### Consumed Events
 - **REV-BR-12: Consumer `order.delivered`**: Updates customer eligibility record to allow product review submission.

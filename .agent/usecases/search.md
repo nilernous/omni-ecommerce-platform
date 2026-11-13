@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/search-service/`  
 > **Default Port:** `3012`  
-> **Business Rules Reference:** [search.md](../business/search.md)  
+> **Business Rules Reference:** [search.md](../business-rules/search.md)  
 
 ---
 

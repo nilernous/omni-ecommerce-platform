@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/promotion-service/`  
 > **Default Port:** `3009`  
-> **Business Rules Reference:** [promotion.md](../business/promotion.md)  
+> **Business Rules Reference:** [promotion.md](../business-rules/promotion.md)  
 
 ---
 

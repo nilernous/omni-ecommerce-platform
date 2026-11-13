@@ -1650,7 +1650,7 @@ Customer BFF
 
 ↓
 
-Auth Service
+Identity Service
 
 ↓
 
@@ -3004,7 +3004,7 @@ Customer BFF
 
 ↓
 
-Auth Service
+Identity Service
 
 ↓
 
@@ -3108,7 +3108,7 @@ Customer BFF
 
 ↓
 
-User Service
+Identity Service
 
 ↓
 

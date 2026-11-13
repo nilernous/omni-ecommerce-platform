@@ -464,7 +464,7 @@ At a high level, requests flow through several architectural layers before reach
                          │
      ┌───────────────────┼────────────────────┐
      ▼                   ▼                    ▼
- Auth Service      Product Service      Order Service
+ Identity Service  Product Service      Order Service
      │                   │                    │
  Inventory Service   Payment Service   Notification Service
      │                   │                    │
@@ -560,13 +560,13 @@ Backend services are grouped into logical business domains.
 
 | Category | Services |
 |----------|----------|
-| Identity | Auth Service, User Service |
+| Identity | Identity Service (Auth + User modules) |
 | Commerce | Product Service, Cart Service, Order Service |
 | Inventory | Inventory Service |
 | Payment | Payment Service |
 | Logistics | Shipping Service |
 | Marketing | Promotion Service |
-| Content | Review Service, Media Service |
+| Content | Product Service (Review module), Media Service |
 | Search | Search Service |
 | Communication | Notification Service |
 | Analytics | Analytics Service |
@@ -608,11 +608,11 @@ Business logic should reside within the Domain and Application layers rather tha
 
 # 9. Core Services
 
-## 9.1 Auth Service
+## 9.1 Identity Service — Auth Module
 
 ### Purpose
 
-The Auth Service is responsible for identity verification and access management across the platform.
+The Identity Service is responsible for identity verification and access management across the platform.
 
 It serves as the primary authority for authentication and token issuance.
 
@@ -642,7 +642,7 @@ It serves as the primary authority for authentication and token issuance.
 
 ### External Dependencies
 
-- User Service
+- Identity Service
 - Notification Service
 - Redis
 
@@ -664,13 +664,13 @@ It serves as the primary authority for authentication and token issuance.
 
 ---
 
-## 9.2 User Service
+## 9.2 Identity Service — User Module
 
 ### Purpose
 
-The User Service manages user profiles and account information.
+The User module of the Identity Service manages user profiles and account information.
 
-Authentication remains the responsibility of the Auth Service.
+Authentication remains the responsibility of the Auth module of the same service. Both modules share `identity_db`.
 
 ---
 
@@ -990,11 +990,11 @@ The Promotion Service manages promotional campaigns and discount rules.
 
 ---
 
-## 9.10 Review Service
+## 9.10 Product Service — Review Module
 
 ### Purpose
 
-The Review Service manages customer reviews and product ratings.
+The Review module of the Product Service manages customer reviews and product ratings. It shares `product_db` with the catalog, so rating aggregates update in the same transaction.
 
 ---
 
@@ -1439,7 +1439,7 @@ Client
      ▼
 API Gateway
      │
-     ├────────► Auth Service
+     ├────────► Identity Service
      ├────────► Product Service
      ├────────► Order Service
      ├────────► Inventory Service
@@ -2332,7 +2332,7 @@ Login
 
 ↓
 
-Auth Service
+Identity Service
 
 ↓
 
@@ -3189,7 +3189,7 @@ API Gateway
 
 ↓
 
-Auth Service
+Identity Service
 
 ↓
 

@@ -1,18 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
+import { RPC_QUEUES } from '@omnicommerce/constants';
+import { connectRabbitMq } from '@omnicommerce/events';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const microservicePort = Number(process.env.MEDIA_SERVICE_TCP_PORT || 3011);
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: { host: '0.0.0.0', port: microservicePort },
+  await connectRabbitMq(app, {
+    serviceName: 'media-service',
+    rpcQueue: RPC_QUEUES.MEDIA,
   });
 
-  await app.startAllMicroservices();
-  await app.listen(Number(process.env.MEDIA_SERVICE_PORT || 3010));
+  const port = Number(process.env.MEDIA_SERVICE_PORT || process.env.PORT || 3011);
+  await app.listen(port);
+  console.log(`🖼️ Media Service running on HTTP port ${port} (RPC queue: ${RPC_QUEUES.MEDIA})`);
 }
 
 bootstrap();

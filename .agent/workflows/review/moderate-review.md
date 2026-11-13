@@ -11,7 +11,7 @@ status: Approved
 
 domain: Review
 
-target_service: review-service
+target_service: product-service
 
 owner: Review Team
 
@@ -84,7 +84,7 @@ Moderates submitted customer product reviews before public publication.
 | Property | Value |
 |----------|--------|
 | Domain | Review |
-| Target Service | review-service |
+| Target Service | product-service |
 | Primary Actor | Administrator |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -99,8 +99,8 @@ Moderates submitted customer product reviews before public publication.
 
 ## Secondary Actors
 
-- review-service
-- Database (review_db)
+- product-service
+- Database (product_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -115,8 +115,8 @@ Moderate Submitted Review (Admin) is initiated via incoming client API request o
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (review-service) is online and responsive.
-- [ ] Database connection to review_db is active.
+- [ ] Target service (product-service) is online and responsive.
+- [ ] Database connection to product_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -125,19 +125,19 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Status Update**: Admin approves or rejects review in `review_db` (`REV-BR-06`).
+**Status Update**: Admin approves or rejects review in `product_db` (`REV-BR-06`).
 
 ---
 
 ## Step 2
 
-**Event Emission**: Broadcasts `review.approved` event on approval (`REV-BR-11`).
+**Rating Sync**: On approval, re-computes the product's `averageRating` and `reviewCount` in the same `product_db` transaction (`REV-BR-08`, `REV-BR-09`).
 
 ---
 
 ## Step 3
 
-**Rating Sync**: Product Service re-computes product's `averageRating` (`REV-BR-08`, `REV-BR-09`).
+**Event Emission**: Writes the `review.approved` outbox record in the same transaction for downstream consumers (`REV-BR-11`).
 
 ---
 
@@ -205,17 +205,19 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Admin as Platform Admin
-  participant RevSvc as Review Service (:3100)
-  participant DB as PostgreSQL (review_db)
+  participant RevSvc as Product Service · Review (:3003)
+  participant DB as PostgreSQL (product_db)
   participant Broker as RabbitMQ Event Bus
-  participant PrdSvc as Product Service (:3003)
 
   Admin->>RevSvc: POST /api/v1/reviews/{id}/moderate (action: APPROVED / REJECTED)
-  RevSvc->>DB: UPDATE reviews SET status = ? WHERE id = ?
+  RevSvc->>DB: BEGIN TRANSACTION: UPDATE product_reviews SET status = ? WHERE id = ?
   alt action == APPROVED
+    RevSvc->>DB: UPDATE products SET average_rating = SUM(ratings) / count(reviews), review_count = ? (REV-BR-08, REV-BR-09)
+    RevSvc->>DB: INSERT outbox record (review.approved)
+  end
+  RevSvc->>DB: COMMIT
+  opt action == APPROVED
     RevSvc->>Broker: Outbox Relay publishes `review.approved` (productId)
-    Broker->>PrdSvc: Deliver `review.approved`
-    PrdSvc->>PrdSvc: Recompute averageRating = SUM(ratings) / count(reviews) (REV-BR-08, REV-BR-09)
   end
   RevSvc-->>Admin: HTTP 200 OK
 ```
@@ -239,7 +241,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in review_db.
+- Target entity attributes in product_db.
 
 ## Deleted
 
@@ -465,7 +467,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- review-service
+- product-service
 
 ---
 
@@ -478,7 +480,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (review_db)
+- PostgreSQL (product_db)
 - Redis Cache
 
 ---

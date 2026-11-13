@@ -19,7 +19,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **`SELLER`**: Verified merchant vendor creating product listings, managing physical stock, generating carrier shipping labels, and viewing store performance.
 - **`ADMIN`**: Platform operational administrator approving product listings, moderating customer reviews, managing promotions, and issuing refunds.
 - **`SUPER_ADMIN`**: Root system administrator managing user role assignments and platform system configurations.
-- **`SYSTEM_WORKER` / Event Consumer**: Asynchronous background worker processing AMQP message queues, scheduled cron jobs, Redis distributed locks, and BullMQ retries.
+- **`SYSTEM_WORKER` / Event Consumer**: Asynchronous background worker processing AMQP message queues, scheduled cron jobs, Redis distributed locks, and RabbitMQ delayed retries (TTL + DLX).
 - **`CARRIER_WEBHOOK`**: Third-party logistics carrier API (FedEx, UPS, DHL) pushing real-time tracking scan updates.
 - **`PAYMENT_GATEWAY_WEBHOOK`**: Third-party payment provider API (Stripe, PayPal) pushing asynchronous transaction settlement callbacks.
 
@@ -29,8 +29,8 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 
 | Prefix | Microservice Name | Port | Total Use Cases | Primary Actors | Key Functional Responsibilities |
 |---|---|---|---|---|---|
-| `AUTH-UC` | **Auth Service** | `3001` | 5 | Customer, Seller, Admin, System | Registration, login, token rotation, session revocation, password reset |
-| `USER-UC` | **User Service** | `3002` | 6 | Customer, Seller, Admin | Profile management, delivery addresses (max 10), default address switching |
+| `AUTH-UC` | **Identity Service** (Auth domain) | `3001` | 5 | Customer, Seller, Admin, System | Registration, login, token rotation, session revocation, password reset |
+| `USER-UC` | **Identity Service** (User domain) | `3001` | 6 | Customer, Seller, Admin | Profile management, delivery addresses (max 10), default address switching |
 | `PRD-UC` | **Product Service** | `3003` | 6 | Customer, Seller, Admin | Catalog browsing, SKU creation, seller submission, admin approval workflow |
 | `INV-UC` | **Inventory Service** | `3004` | 6 | Customer, Seller, Admin, System | Stock balance queries, 15-min reservations, permanent deductions, low stock alerts |
 | `CART-UC` | **Cart Service** | `3005` | 6 | Guest, Customer, System | In-memory Redis cart sessions, guest-to-user merging, 50-item ceiling |
@@ -38,48 +38,48 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 | `PAY-UC` | **Payment Service** | `3007` | 4 | Customer, Admin, Gateway Webhook | Stripe/PayPal charges, webhook signature verification, full/partial refunds |
 | `SHIP-UC` | **Shipping Service** | `3008` | 4 | Customer, Seller, Carrier Webhook | Shipping rate calculations, label PDF generation, tracking scan ingestion |
 | `PROM-UC` | **Promotion Service** | `3009` | 4 | Customer, Admin, System | Coupon validation, percentage/fixed discounts, flash sales, usage caps |
-| `REV-UC` | **Review Service** | `3010` | 3 | Customer, Admin | Verified purchase product reviews, 1-5 star ratings, profanity moderation |
+| `REV-UC` | **Product Service** (Review domain) | `3003` | 3 | Customer, Admin | Verified purchase product reviews, 1-5 star ratings, profanity moderation |
 | `MED-UC` | **Media Service** | `3011` | 3 | Customer, Seller, Admin | Multipart file uploads, magic-byte checks, WebP conversion, thumbnails |
 | `SRCH-UC` | **Search Service** | `3012` | 4 | Customer, Admin, Event Bus | Full-text product search, auto-complete, 2s event sync SLA, bulk reindexing |
-| `NOTIF-UC`| **Notification Service**| `3013` | 5 | System, Customer | Email (Handlebars), SMS (Twilio), Mobile Push (FCM), BullMQ retries |
+| `NOTIF-UC`| **Notification Service**| `3013` | 5 | System, Customer | Email (Handlebars), SMS (Twilio), Mobile Push (FCM), RabbitMQ retries |
 | `ANL-UC` | **Analytics Service** | `3014` | 5 | Admin, Seller, System Bus | Async metric ingestion, TimescaleDB hyper-tables, GMV/AOV reports |
 
 ---
 
 ## 3. Comprehensive Microservice Use Case Specifications
 
-### 3.1 Auth Service (`AUTH-UC`)
-*Source Spec:* [.agent/usecases/auth.md](../../.agent/usecases/auth.md) | *Business Rules:* [AUTH-BR](./BUSINESS_RULE_CATALOG.md#31-auth-service-auth-br)
+### 3.1 Identity Service — Auth Domain (`AUTH-UC`)
+*Source Spec:* [.agent/usecases/auth.md](../../.agent/usecases/auth.md) | *Business Rules:* [AUTH-BR](./BUSINESS_RULE_CATALOG.md#31-identity-service-auth-br)
 
 #### AUTH-UC-01: User Registration
 - **Primary Actor**: Anonymous Customer / Seller applicant
 - **Preconditions**: User possesses a valid email address and meets password criteria.
 - **Trigger**: Client sends `POST /api/v1/auth/register` with email, password, firstName, lastName.
 - **Main Success Scenario**:
-  1. Auth Service validates email format and password complexity (`AUTH-BR-02`, `AUTH-BR-03`).
-  2. Service queries `auth_db` to ensure email is not already registered (`AUTH-BR-01`).
+  1. Identity Service validates email format and password complexity (`AUTH-BR-02`, `AUTH-BR-03`).
+  2. Service queries `identity_db` to ensure email is not already registered (`AUTH-BR-01`).
   3. Service hashes plaintext password using Argon2id / Bcrypt (`AUTH-BR-04`).
-  4. Service inserts new `user` record into `auth_db` with `role: CUSTOMER` (or `SELLER`) (`AUTH-BR-05`).
-  5. Service writes an outbox record for `auth.user.registered` domain event within the same database transaction (`AUTH-BR-06`).
+  4. Service inserts new `user` record into `identity_db` with `role: CUSTOMER` (or `SELLER`) (`AUTH-BR-05`).
+  5. In the same `identity_db` transaction, Service creates the initial `user_profiles` and `user_preferences` records (`USER-BR-16`) and writes an outbox record for the `auth.user.registered` domain event (`AUTH-BR-06`).
   6. Service generates initial JWT access token (1h) and refresh token (7d) (`AUTH-BR-07`, `AUTH-BR-08`).
   7. Service returns `201 CREATED` with user profile payload and token pair in standard envelope.
 - **Alternative / Exception Flows**:
   - *Email already exists*: System returns `409 CONFLICT` with error `EMAIL_ALREADY_REGISTERED`.
   - *Password fails complexity*: System returns `400 BAD_REQUEST` with validation details.
 - **Business Rules Referenced**: `AUTH-BR-01`, `AUTH-BR-02`, `AUTH-BR-03`, `AUTH-BR-04`, `AUTH-BR-05`, `AUTH-BR-06`, `AUTH-BR-07`.
-- **Postconditions**: User record created in DB, event `auth.user.registered` queued in outbox.
+- **Postconditions**: Credential, profile, and preference records created atomically in `identity_db`; event `auth.user.registered` queued in outbox.
 
 #### AUTH-UC-02: User Credential Login
 - **Primary Actor**: Customer / Seller / Admin
 - **Preconditions**: User has an existing active account in the system.
 - **Trigger**: Client sends `POST /api/v1/auth/login` with email and password.
 - **Main Success Scenario**:
-  1. Auth Service fetches account record by email from `auth_db`.
+  1. Identity Service fetches account record by email from `identity_db`.
   2. Service verifies account status is `ACTIVE` (`AUTH-BR-15`).
   3. Service verifies password hash against provided plaintext password (`AUTH-BR-04`).
   4. Service resets failed login counter to 0 in Redis.
   5. Service generates RS256-signed JWT Access Token (1h) and Refresh Token (7d) (`AUTH-BR-07`, `AUTH-BR-08`).
-  6. Service persists hashed Refresh Token string in `auth_db` with device IP and User-Agent metadata.
+  6. Service persists hashed Refresh Token string in `identity_db` with device IP and User-Agent metadata.
   7. Service returns `200 OK` with user info, access token, and refresh token cookie/payload.
 - **Alternative / Exception Flows**:
   - *Invalid Credentials*: System increments failed login attempt counter in Redis and returns `401 UNAUTHORIZED`.
@@ -93,14 +93,14 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: Client possesses a valid, non-expired refresh token.
 - **Trigger**: Client sends `POST /api/v1/auth/refresh-token` with refresh token payload or cookie.
 - **Main Success Scenario**:
-  1. Auth Service hashes incoming refresh token string.
-  2. Service queries `auth_db` for active refresh token session (`AUTH-BR-08`).
+  1. Identity Service hashes incoming refresh token string.
+  2. Service queries `identity_db` for active refresh token session (`AUTH-BR-08`).
   3. Service checks token expiration date (`exp > NOW`) and ensures token status is not revoked.
   4. Service revokes current refresh token session record in DB (`AUTH-BR-09`).
   5. Service issues a brand new JWT Access Token (1h) and new Refresh Token (7d).
   6. Service persists new Refresh Token record in DB and returns `200 OK` with rotated tokens.
 - **Alternative / Exception Flows**:
-  - *Revoked Token Submitted (Security Breach)*: Auth Service revokes ALL active sessions for that user ID and returns `401 UNAUTHORIZED` (`AUTH-BR-10`).
+  - *Revoked Token Submitted (Security Breach)*: Identity Service revokes ALL active sessions for that user ID and returns `401 UNAUTHORIZED` (`AUTH-BR-10`).
   - *Expired Token*: System returns `401 UNAUTHORIZED` with error `REFRESH_TOKEN_EXPIRED`.
 - **Business Rules Referenced**: `AUTH-BR-07`, `AUTH-BR-08`, `AUTH-BR-09`, `AUTH-BR-10`.
 - **Postconditions**: Old refresh token revoked, new token pair issued.
@@ -110,8 +110,8 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User is logged in with valid bearer token.
 - **Trigger**: Client sends `POST /api/v1/auth/logout`.
 - **Main Success Scenario**:
-  1. Auth Service extracts `jti` (JWT ID) from access token and user session context.
-  2. Service invalidates the corresponding refresh token in `auth_db` (`AUTH-BR-08`).
+  1. Identity Service extracts `jti` (JWT ID) from access token and user session context.
+  2. Service invalidates the corresponding refresh token in `identity_db` (`AUTH-BR-08`).
   3. Service pushes access token `jti` to Redis blacklist with TTL matching remaining token lifespan (`AUTH-BR-19`).
   4. Service returns `200 OK` with confirmation message.
 - **Business Rules Referenced**: `AUTH-BR-08`, `AUTH-BR-19`.
@@ -122,7 +122,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User registered an email account.
 - **Trigger**: Client sends `POST /api/v1/auth/forgot-password` with email.
 - **Main Success Scenario**:
-  1. Auth Service checks if email exists in `auth_db`.
+  1. Identity Service checks if email exists in `identity_db`.
   2. If found, Service generates a cryptographically secure 15-minute reset token (`AUTH-BR-12`).
   3. Service writes reset token record to DB and enqueues `auth.password.reset_requested` outbox event.
   4. Notification Service consumes event and emails password reset link to user.
@@ -132,16 +132,16 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 
 ---
 
-### 3.2 User Service (`USER-UC`)
-*Source Spec:* [.agent/usecases/user.md](../../.agent/usecases/user.md) | *Business Rules:* [USER-BR](./BUSINESS_RULE_CATALOG.md#32-user-service-user-br)
+### 3.2 Identity Service — User Domain (`USER-UC`)
+*Source Spec:* [.agent/usecases/user.md](../../.agent/usecases/user.md) | *Business Rules:* [USER-BR](./BUSINESS_RULE_CATALOG.md#32-identity-service-user-br)
 
 #### USER-UC-01: View User Profile
 - **Primary Actor**: Authenticated User
 - **Preconditions**: User is authenticated with a valid JWT.
 - **Trigger**: Client sends `GET /api/v1/users/profile`.
 - **Main Success Scenario**:
-  1. User Service extracts `userId` from request identity context (`USER-BR-03`).
-  2. Service queries `user_db` for profile details, preferences, and saved addresses (`USER-BR-01`).
+  1. Identity Service extracts `userId` from request identity context (`USER-BR-03`).
+  2. Service queries `identity_db` for profile details, preferences, and saved addresses (`USER-BR-01`).
   3. Service returns `200 OK` with unified user profile object.
 - **Business Rules Referenced**: `USER-BR-01`, `USER-BR-03`, `USER-BR-17`.
 - **Postconditions**: User profile payload returned.
@@ -151,8 +151,8 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User is authenticated.
 - **Trigger**: Client sends `PATCH /api/v1/users/profile` with `firstName`, `lastName`, `phone`, `avatarUrl`, `gender`, `dateOfBirth`.
 - **Main Success Scenario**:
-  1. User Service validates input attributes (E.164 phone format, name character lengths, age >= 13) (`USER-BR-02`, `USER-BR-04`, `USER-BR-05`).
-  2. Service updates `user` record in `user_db`.
+  1. Identity Service validates input attributes (E.164 phone format, name character lengths, age >= 13) (`USER-BR-02`, `USER-BR-04`, `USER-BR-05`).
+  2. Service updates `user` record in `identity_db`.
   3. Service emits `user.profile.updated` event (`USER-BR-14`).
   4. Service returns `200 OK` with updated profile.
 - **Alternative / Exception Flows**:
@@ -166,10 +166,10 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User has fewer than 10 saved addresses (`USER-BR-06`).
 - **Trigger**: Client sends `POST /api/v1/users/addresses` with address payload.
 - **Main Success Scenario**:
-  1. User Service checks current address count for `userId` in `user_db`.
+  1. Identity Service checks current address count for `userId` in `identity_db`.
   2. Service validates required fields (`recipientName`, `streetAddress`, `city`, `state`, `postalCode`, `countryCode`) (`USER-BR-10`).
   3. If user has 0 addresses OR `isDefault: true` is passed, Service sets `isDefault: true` on new address and clears `isDefault` on previous addresses (`USER-BR-07`, `USER-BR-08`).
-  4. Service persists new address record in `user_db`.
+  4. Service persists new address record in `identity_db`.
   5. Service emits `user.address.updated` event and returns `201 CREATED` (`USER-BR-15`).
 - **Alternative / Exception Flows**:
   - *Address Limit Reached (10 addresses)*: Returns `400 BAD_REQUEST` with error `ADDRESS_LIMIT_EXCEEDED` (`USER-BR-06`).
@@ -181,8 +181,8 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: Address ID exists and belongs to the user (`USER-BR-17`).
 - **Trigger**: Client sends `PUT /api/v1/users/addresses/{id}` with updated address details.
 - **Main Success Scenario**:
-  1. User Service verifies address ownership (`address.userId == requester.id`).
-  2. Service updates address fields in `user_db` (`USER-BR-10`).
+  1. Identity Service verifies address ownership (`address.userId == requester.id`).
+  2. Service updates address fields in `identity_db` (`USER-BR-10`).
   3. If updated to `isDefault: true`, Service clears default flag on all other addresses for user (`USER-BR-08`).
   4. Service emits `user.address.updated` event and returns `200 OK` (`USER-BR-15`).
 - **Alternative / Exception Flows**:
@@ -195,9 +195,9 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: Address ID exists and belongs to user.
 - **Trigger**: Client sends `DELETE /api/v1/users/addresses/{id}`.
 - **Main Success Scenario**:
-  1. User Service verifies address ownership (`USER-BR-17`).
+  1. Identity Service verifies address ownership (`USER-BR-17`).
   2. Service checks if target address is marked `isDefault: true`.
-  3. Service deletes address record from `user_db`.
+  3. Service deletes address record from `identity_db`.
   4. If deleted address was default and remaining addresses exist, Service reassigns `isDefault: true` to the most recently updated remaining address (`USER-BR-09`).
   5. Service returns `200 OK`.
 - **Business Rules Referenced**: `USER-BR-07`, `USER-BR-09`, `USER-BR-15`, `USER-BR-17`.
@@ -208,7 +208,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User is logged in.
 - **Trigger**: Client sends `PATCH /api/v1/users/preferences` with preference flags.
 - **Main Success Scenario**:
-  1. User Service updates preference record (`emailEnabled`, `smsEnabled`, `pushEnabled`, `marketingEnabled`) in `user_db` (`USER-BR-11`).
+  1. Identity Service updates preference record (`emailEnabled`, `smsEnabled`, `pushEnabled`, `marketingEnabled`) in `identity_db` (`USER-BR-11`).
   2. Setting `marketingEnabled: false` revokes promotional communications without affecting transactional emails (`USER-BR-12`).
   3. Service returns `200 OK` with updated preferences.
 - **Business Rules Referenced**: `USER-BR-11`, `USER-BR-12`.
@@ -381,7 +381,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Trigger**: Internal stock deduction logic evaluates `Available Quantity < 5`.
 - **Main Success Scenario**:
   1. Inventory Service constructs `inventory.low_stock` event payload (`sku`, `availableQuantity`, `warehouseId`).
-  2. Service publishes event to RabbitMQ topic exchange (`omni.events.topic`) (`INV-BR-12`).
+  2. Service publishes event to RabbitMQ topic exchange (`omni.domain.events`) (`INV-BR-12`).
   3. Notification Service consumes event and sends low-stock alert email to merchant/admin.
 - **Business Rules Referenced**: `INV-BR-03`, `INV-BR-12`.
 - **Postconditions**: Event `inventory.low_stock` published to message broker.
@@ -753,22 +753,22 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 
 ---
 
-### 3.10 Review Service (`REV-UC`)
-*Source Spec:* [.agent/usecases/review.md](../../.agent/usecases/review.md) | *Business Rules:* [REV-BR](./BUSINESS_RULE_CATALOG.md#310-review-service-rev-br)
+### 3.10 Product Service — Review Domain (`REV-UC`)
+*Source Spec:* [.agent/usecases/review.md](../../.agent/usecases/review.md) | *Business Rules:* [REV-BR](./BUSINESS_RULE_CATALOG.md#310-product-service-rev-br)
 
 #### REV-UC-01: Submit Customer Product Review
 - **Primary Actor**: Authenticated Customer
 - **Preconditions**: Customer purchased product and order status is `DELIVERED` or `COMPLETED` (`REV-BR-01`).
 - **Trigger**: Client sends `POST /api/v1/reviews/products/{productId}` with `rating` (1-5), `comment` text (10-2000 chars).
 - **Main Success Scenario**:
-  1. Review Service queries Order Service / DB to verify user has a delivered order containing `productId` (`REV-BR-01`).
+  1. Product Service queries Order Service / DB to verify user has a delivered order containing `productId` (`REV-BR-01`).
   2. Service checks that user has not previously reviewed this product for this order (`REV-BR-02`).
   3. Service validates `rating` is an integer between 1 and 5 (`REV-BR-03`).
   4. Service validates comment text length (10 to 2000 characters) (`REV-BR-04`).
   5. Service passes comment text through automated profanity filter (`REV-BR-05`).
   6. If clean, status is set to `APPROVED` and `verifiedPurchase: true` badge is attached (`REV-BR-06`, `REV-BR-07`).
   7. If profanity flagged, status is set to `PENDING_MODERATION`.
-  8. Service persists review in `review_db`, emits `review.submitted` event, and returns `201 CREATED` (`REV-BR-10`).
+  8. Service persists review in `product_db`, emits `review.submitted` event, and returns `201 CREATED` (`REV-BR-10`).
 - **Alternative / Exception Flows**:
   - *No Verified Purchase*: Returns `403 FORBIDDEN` with error `VERIFIED_PURCHASE_REQUIRED` (`REV-BR-01`).
   - *Duplicate Review*: Returns `400 BAD_REQUEST` with error `DUPLICATE_REVIEW` (`REV-BR-02`).
@@ -780,10 +780,10 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: Review exists in `PENDING_MODERATION` status (`REV-BR-06`).
 - **Trigger**: Admin sends `POST /api/v1/reviews/{id}/moderate` with `action: APPROVED` or `action: REJECTED`.
 - **Main Success Scenario**:
-  1. Review Service validates admin role.
-  2. Service updates review status in `review_db` (`APPROVED` or `REJECTED`) (`REV-BR-06`).
-  3. If approved, Service emits `review.approved` event (`REV-BR-11`).
-  4. Product Service consumes `review.approved` and re-computes `averageRating` (`REV-BR-08`, `REV-BR-09`).
+  1. Product Service validates admin role.
+  2. Service updates review status in `product_db` (`APPROVED` or `REJECTED`) (`REV-BR-06`).
+  3. If approved, Service re-computes the product's `averageRating` and `reviewCount` in the same `product_db` transaction (`REV-BR-08`, `REV-BR-09`).
+  4. Service writes a `review.approved` outbox record in that transaction for downstream consumers (`REV-BR-11`).
   5. Service returns `200 OK`.
 - **Business Rules Referenced**: `REV-BR-06`, `REV-BR-08`, `REV-BR-09`, `REV-BR-11`.
 - **Postconditions**: Review status updated, product average rating re-calculated if approved.
@@ -793,7 +793,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: Product exists.
 - **Trigger**: Client sends `GET /api/v1/reviews/products/{productId}` with page, limit, ratingFilter.
 - **Main Success Scenario**:
-  1. Review Service queries `review_db` for approved reviews (`status == APPROVED`) linked to `productId` (`REV-BR-06`).
+  1. Product Service queries `product_db` for approved reviews (`status == APPROVED`) linked to `productId` (`REV-BR-06`).
   2. Service computes rating distribution breakdown (counts for 5, 4, 3, 2, 1 stars) and overall `averageRating` (`REV-BR-08`).
   3. Service returns `200 OK` with aggregate rating summary and paginated review items.
 - **Business Rules Referenced**: `REV-BR-06`, `REV-BR-07`, `REV-BR-08`.
@@ -917,11 +917,11 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
   1. Notification Service parses event payload (recipient email, recipient name, order details).
   2. Service checks notification type:
      - Transactional notifications (Welcome, Order Placed, Password Reset) bypass marketing opt-out check (`NOTIF-BR-04`).
-     - Promotional notifications check User Service preferences (`marketingEnabled == true`, `NOTIF-BR-05`).
+     - Promotional notifications check Identity Service preferences (`marketingEnabled == true`, `NOTIF-BR-05`).
   3. Service loads HTML Handlebars template for event type (`NOTIF-BR-01`).
   4. Service renders Handlebars template with event data.
-  5. Service enqueues email job in BullMQ Redis queue (`NOTIF-BR-06`).
-  6. BullMQ worker calls SMTP gateway (Nodemailer / SendGrid) and dispatches email.
+  5. Service publishes an email dispatch message to RabbitMQ exchange `omni.notification.dispatch` (routing key `email`) (`NOTIF-BR-06`).
+  6. Email dispatch consumer reads from `omni.notification.email-dispatch.queue`, calls SMTP gateway (Nodemailer / SendGrid), and acks the message.
   7. Service logs notification delivery status in `notification_db`.
 - **Alternative / Exception Flows**:
   - *User Opted Out of Marketing*: Promotional notification skipped, log recorded as `SKIPPED_OPT_OUT` (`NOTIF-BR-05`).
@@ -935,7 +935,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Main Success Scenario**:
   1. Notification Service extracts phone number and message template variables.
   2. Service formats text message (`NOTIF-BR-02`).
-  3. Service enqueues SMS job in BullMQ queue (`NOTIF-BR-06`).
+  3. Service publishes an SMS dispatch message to `omni.notification.dispatch` (routing key `sms`) (`NOTIF-BR-06`).
   4. Worker dispatches SMS via Twilio API.
   5. Service logs delivery record in `notification_db`.
 - **Business Rules Referenced**: `NOTIF-BR-02`, `NOTIF-BR-06`, `NOTIF-BR-12`.
@@ -946,7 +946,7 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Preconditions**: User has registered active FCM device token in Flutter mobile app.
 - **Trigger**: Domain event received (`order.created`, `order.shipped`, `order.delivered`).
 - **Main Success Scenario**:
-  1. Notification Service queries User Service for recipient's FCM device push tokens.
+  1. Notification Service queries Identity Service for recipient's FCM device push tokens.
   2. Service constructs FCM push payload (title, body, orderId deep link) (`NOTIF-BR-03`).
   3. Service calls Firebase Cloud Messaging (FCM) API.
   4. FCM delivers push notification to customer's iOS / Android device.
@@ -965,13 +965,14 @@ This document provides the **Master Use Case Catalog** for the OmniCommerce e-co
 - **Postconditions**: Notification history returned or marked read.
 
 #### NOTIF-UC-05: Handle Notification Dispatch Failure & Retries
-- **Primary Actor**: BullMQ Worker / System Queue
+- **Primary Actor**: RabbitMQ Dispatch Consumer (System)
 - **Preconditions**: Email, SMS, or Push dispatch failed due to network or gateway error.
 - **Trigger**: SMTP / Twilio / FCM API returns error or timeout.
 - **Main Success Scenario**:
-  1. BullMQ worker intercepts failure.
-  2. Worker schedules job retry with exponential backoff delay (Attempt 1: 10s, Attempt 2: 30s, Attempt 3: 90s) (`NOTIF-BR-07`).
-  3. If all 3 retry attempts fail, worker moves job to Dead Letter Queue (DLQ) and flags status `FAILED` in `notification_db`.
+  1. Dispatch consumer intercepts the failure and reads the `x-retry-count` header.
+  2. Consumer republishes the message to the matching RabbitMQ delay queue (Attempt 1: `retry-10s`, Attempt 2: `retry-30s`, Attempt 3: `retry-90s`) with `x-retry-count + 1`, then acks the original (`NOTIF-BR-07`).
+  3. When the TTL expires, RabbitMQ dead-letters the message back to `omni.notification.dispatch` and it is redelivered to its channel queue.
+  4. If all 3 retry attempts fail, consumer publishes the message to `omni.dead.letter` (`dlq.notification` → `omni.notification.dlq`) and flags status `FAILED` in `notification_db`.
 - **Business Rules Referenced**: `NOTIF-BR-06`, `NOTIF-BR-07`.
 - **Postconditions**: Notification retried up to 3 times before DLQ movement.
 
