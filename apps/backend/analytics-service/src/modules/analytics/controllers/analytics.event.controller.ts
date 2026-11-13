@@ -43,7 +43,7 @@ export class AnalyticsEventController {
     this.logger.log(`[ANL-BR-12] Ingesting user.registered event for analytics`);
     await this.analyticsService.ingestMetric({
       eventType: 'user.registered',
-      sourceService: 'user-service',
+      sourceService: 'identity-service',
       payload: data,
     });
   }

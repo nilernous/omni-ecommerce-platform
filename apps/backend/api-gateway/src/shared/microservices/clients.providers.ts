@@ -16,8 +16,7 @@ import {
   ANALYTICS_SERVICE,
 } from '../../common/constants/services.constant';
 import {
-  AUTH_QUEUE,
-  USER_QUEUE,
+  IDENTITY_QUEUE,
   PRODUCT_QUEUE,
   CATEGORY_QUEUE,
   INVENTORY_QUEUE,
@@ -26,7 +25,6 @@ import {
   PAYMENT_QUEUE,
   SHIPPING_QUEUE,
   COUPON_QUEUE,
-  REVIEW_QUEUE,
   NOTIFICATION_QUEUE,
   ANALYTICS_QUEUE,
 } from '../../common/constants/queues.constant';
@@ -52,8 +50,9 @@ function createRmqClientProvider(provideToken: string, queueName: string) {
 }
 
 export const clientsProviders = [
-  createRmqClientProvider(AUTH_SERVICE, AUTH_QUEUE),
-  createRmqClientProvider(USER_SERVICE, USER_QUEUE),
+  // AUTH_SERVICE and USER_SERVICE are both served by identity-service
+  createRmqClientProvider(AUTH_SERVICE, IDENTITY_QUEUE),
+  createRmqClientProvider(USER_SERVICE, IDENTITY_QUEUE),
   createRmqClientProvider(PRODUCT_SERVICE, PRODUCT_QUEUE),
   createRmqClientProvider(CATEGORY_SERVICE, CATEGORY_QUEUE),
   createRmqClientProvider(INVENTORY_SERVICE, INVENTORY_QUEUE),
@@ -62,7 +61,8 @@ export const clientsProviders = [
   createRmqClientProvider(PAYMENT_SERVICE, PAYMENT_QUEUE),
   createRmqClientProvider(SHIPPING_SERVICE, SHIPPING_QUEUE),
   createRmqClientProvider(COUPON_SERVICE, COUPON_QUEUE),
-  createRmqClientProvider(REVIEW_SERVICE, REVIEW_QUEUE),
+  // Reviews are a module of product-service
+  createRmqClientProvider(REVIEW_SERVICE, PRODUCT_QUEUE),
   createRmqClientProvider(NOTIFICATION_SERVICE, NOTIFICATION_QUEUE),
   createRmqClientProvider(ANALYTICS_SERVICE, ANALYTICS_QUEUE),
 ];
