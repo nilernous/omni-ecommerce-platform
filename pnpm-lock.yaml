@@ -56,6 +56,9 @@ importers:
       '@omnicommerce/dto':
         specifier: workspace:*
         version: link:../../../packages/dto
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       '@omnicommerce/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
@@ -211,6 +214,9 @@ importers:
       '@omnicommerce/dto':
         specifier: workspace:*
         version: link:../../../packages/dto
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       '@omnicommerce/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
@@ -278,6 +284,9 @@ importers:
       '@omnicommerce/dto':
         specifier: workspace:*
         version: link:../../../packages/dto
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       '@omnicommerce/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
@@ -397,6 +406,12 @@ importers:
       '@nestjs/platform-express':
         specifier: ^10.3.0
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)
+      '@omnicommerce/constants':
+        specifier: workspace:*
+        version: link:../../../packages/constants
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       reflect-metadata:
         specifier: ^0.2.1
         version: 0.2.2
@@ -428,6 +443,18 @@ importers:
       '@nestjs/platform-express':
         specifier: ^10.3.0
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)
+      '@omnicommerce/constants':
+        specifier: workspace:*
+        version: link:../../../packages/constants
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
+      amqp-connection-manager:
+        specifier: ^4.1.14
+        version: 4.1.15(amqplib@0.10.9)
+      amqplib:
+        specifier: ^0.10.3
+        version: 0.10.9
       reflect-metadata:
         specifier: ^0.2.1
         version: 0.2.2
@@ -438,6 +465,9 @@ importers:
       '@nestjs/cli':
         specifier: ^10.3.2
         version: 10.4.9
+      '@types/amqplib':
+        specifier: ^0.10.5
+        version: 0.10.8
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
@@ -599,6 +629,9 @@ importers:
       '@omnicommerce/dto':
         specifier: workspace:*
         version: link:../../../packages/dto
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       '@omnicommerce/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
@@ -657,6 +690,9 @@ importers:
       '@omnicommerce/dto':
         specifier: workspace:*
         version: link:../../../packages/dto
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       '@omnicommerce/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
@@ -697,6 +733,12 @@ importers:
       '@nestjs/platform-express':
         specifier: ^10.3.0
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)
+      '@omnicommerce/constants':
+        specifier: workspace:*
+        version: link:../../../packages/constants
+      '@omnicommerce/events':
+        specifier: workspace:*
+        version: link:../../../packages/events
       reflect-metadata:
         specifier: ^0.2.1
         version: 0.2.2
@@ -905,10 +947,31 @@ importers:
 
   packages/events:
     dependencies:
+      '@nestjs/common':
+        specifier: ^10.3.0
+        version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/microservices':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(amqp-connection-manager@4.1.15(amqplib@0.10.9))(amqplib@0.10.9)(ioredis@5.11.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@omnicommerce/constants':
         specifier: workspace:*
         version: link:../constants
+      amqp-connection-manager:
+        specifier: ^4.1.14
+        version: 4.1.15(amqplib@0.10.9)
+      amqplib:
+        specifier: ^0.10.3
+        version: 0.10.9
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
     devDependencies:
+      '@types/amqplib':
+        specifier: ^0.10.5
+        version: 0.10.8
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.43
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -1259,6 +1322,9 @@ packages:
 
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
+
+  '@types/amqplib@0.10.8':
+    resolution: {integrity: sha512-vtDp8Pk1wsE/AuQ8/Rgtm6KUZYqcnTgNvEHwzCkX8rL7AGsC6zqAfKAAJhUZXFhM/Pp++tbnUHiam/8vVpPztA==}
 
   '@types/bcrypt@5.0.2':
     resolution: {integrity: sha512-6atioO8Y75fNcbmj0G7UjI9lXN2pQ/IGJ2FWT4a/btd0Lk9lQalHLKhkgKVZ3r+spnmWUKfbMi1GEe9wyHQfNQ==}
@@ -3542,6 +3608,10 @@ snapshots:
       - supports-color
 
   '@tokenizer/token@0.3.0': {}
+
+  '@types/amqplib@0.10.8':
+    dependencies:
+      '@types/node': 20.19.43
 
   '@types/bcrypt@5.0.2':
     dependencies:
