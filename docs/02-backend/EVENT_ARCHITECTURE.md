@@ -41,8 +41,8 @@
    4.2 Event Payload Design Rules  
    4.3 Event Versioning Strategy  
 5. Domain Event Catalog
-   5.1 Auth Service Events  
-   5.2 User Service Events  
+   5.1 Identity Service Events — Auth  
+   5.2 Identity Service Events — User  
    5.3 Product Service Events  
    5.4 Inventory Service Events  
    5.5 Cart Service Events  
@@ -50,7 +50,7 @@
    5.7 Payment Service Events  
    5.8 Shipping Service Events  
    5.9 Promotion Service Events  
-   5.10 Review Service Events  
+   5.10 Product Service Events — Review  
    5.11 Media Service Events  
    5.12 Search Service Events  
    5.13 Notification Service Events  
@@ -88,7 +88,7 @@ This document defines the **Event Architecture** for OmniCommerce. It establishe
 This specification covers:
 - RabbitMQ messaging topology (Exchanges, Queues, Routing Keys).
 - Standard Event Envelope schemas and payload conventions.
-- The complete Domain Event Catalog across all 14 microservices.
+- The complete Domain Event Catalog across all 12 microservices.
 - Reliable event publishing via the Transactional Outbox pattern.
 - Consumer idempotency, dead-letter routing, and retry strategies.
 - Observability and trace context propagation across event boundaries.
@@ -240,7 +240,7 @@ All published messages must be wrapped in a uniform JSON event envelope:
 
 # 5. Domain Event Catalog
 
-## 5.1 Auth Service Events
+## 5.1 Identity Service Events — Auth
 
 | Event Name | Routing Key | Description |
 |------------|-------------|-------------|
@@ -250,7 +250,7 @@ All published messages must be wrapped in a uniform JSON event envelope:
 
 ---
 
-## 5.2 User Service Events
+## 5.2 Identity Service Events — User
 
 | Event Name | Routing Key | Description |
 |------------|-------------|-------------|
@@ -327,7 +327,7 @@ All published messages must be wrapped in a uniform JSON event envelope:
 
 ---
 
-## 5.10 Review Service Events
+## 5.10 Product Service Events — Review
 
 | Event Name | Routing Key | Description |
 |------------|-------------|-------------|

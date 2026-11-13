@@ -61,8 +61,8 @@
    7.2 Admin BFF API Contracts  
    7.3 Seller BFF API Contracts  
 8. Core Microservice API Specifications
-   8.1 Auth Service API  
-   8.2 User Service API  
+   8.1 Identity Service API — Auth  
+   8.2 Identity Service API — Users  
    8.3 Product Service API  
    8.4 Inventory Service API  
    8.5 Cart Service API  
@@ -70,7 +70,7 @@
    8.7 Payment Service API  
    8.8 Shipping Service API  
    8.9 Promotion Service API  
-   8.10 Review Service API  
+   8.10 Product Service API — Reviews  
    8.11 Media Service API  
    8.12 Search Service API  
    8.13 Notification Service API  
@@ -115,7 +115,7 @@ This document covers all synchronous application programming interfaces (APIs) w
 
 - **API Gateway Layer**: Public edge routing, rate limiting, and global request validation.
 - **Backend for Frontend (BFF) Layer**: Aggregated and transformed endpoints tailored for Customer Web/Mobile, Admin Portal, and Seller Portal.
-- **Business Microservice APIs**: Domain-specific RESTful APIs across all 14 backend microservices.
+- **Business Microservice APIs**: Domain-specific RESTful APIs across all 12 backend microservices.
 - **API Standards & Conventions**: Naming rules, HTTP method usage, response envelopes, pagination models, and error schemas.
 - **Security & Authorization**: JWT token handling, RBAC scope validation, and resource ownership checks.
 - **Observability**: Request correlation, header propagation, and API metrics collection.
@@ -173,10 +173,10 @@ OmniCommerce implements a multi-tiered API architecture designed to decouple pub
 ```text
  Client Layer                 API Gateway & BFF Layer            Business Microservices Layer
 ┌──────────────┐             ┌─────────────────────────┐          ┌───────────────────────────┐
-│ Customer Web │────────────►│ Customer BFF            │─┐        │ Auth Service              │
+│ Customer Web │────────────►│ Customer BFF            │─┐        │ Identity Service (Auth)   │
 └──────────────┘             └─────────────────────────┘ │        └───────────────────────────┘
 ┌──────────────┐             ┌─────────────────────────┐ │        ┌───────────────────────────┐
-│ Flutter App  │────────────►│ Customer BFF            │ │        │ User Service              │
+│ Flutter App  │────────────►│ Customer BFF            │ │        │ Identity Service (User)   │
 └──────────────┘             └─────────────────────────┘ │        └───────────────────────────┘
 ┌──────────────┐             ┌─────────────────────────┐ │        ┌───────────────────────────┐
 │ Admin Web    │────────────►│ Admin BFF               │ │        │ Product Service           │
@@ -524,7 +524,7 @@ The API Gateway routes incoming HTTP requests to their corresponding destination
 
 | Ingress Path Pattern | Target Upstream Service | Public / Auth Required |
 |----------------------|-------------------------|------------------------|
-| `/api/v1/auth/*` | Auth Service | Public (Select Protected) |
+| `/api/v1/auth/*` | Identity Service | Public (Select Protected) |
 | `/api/v1/customer/*` | Customer BFF | Mix (Public reads / Protected writes)|
 | `/api/v1/admin/*` | Admin BFF | Protected (`ADMIN`, `SUPER_ADMIN`)|
 | `/api/v1/seller/*` | Seller BFF | Protected (`SELLER`)|
@@ -623,7 +623,7 @@ Base Route: `/api/v1/seller`
 
 # 8. Core Microservice API Specifications
 
-## 8.1 Auth Service API
+## 8.1 Identity Service API — Auth
 
 Base Route: `/api/v1/auth`
 
@@ -639,7 +639,7 @@ GET  /me                 - Get Current Authenticated Identity
 
 ---
 
-## 8.2 User Service API
+## 8.2 Identity Service API — Users
 
 Base Route: `/api/v1/users`
 
@@ -751,7 +751,7 @@ POST /flash-sales           - Create Flash Sale Event (Admin)
 
 ---
 
-## 8.10 Review Service API
+## 8.10 Product Service API — Reviews
 
 Base Route: `/api/v1/reviews`
 
@@ -827,7 +827,7 @@ Authorization: Bearer eyJhbGciOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
   "email": "customer@example.com",
   "roles": ["CUSTOMER"],
   "permissions": ["order:create", "order:read", "cart:write"],
-  "iss": "omnicommerce-auth-service",
+  "iss": "omnicommerce-identity-service",
   "iat": 1785168000,
   "exp": 1785171600
 }

@@ -11,7 +11,7 @@ status: Approved
 
 domain: User
 
-target_service: user-service
+target_service: identity-service
 
 owner: User Team
 
@@ -82,7 +82,7 @@ Assigns administrative or merchant roles to user account.
 | Property | Value |
 |----------|--------|
 | Domain | User |
-| Target Service | user-service |
+| Target Service | identity-service |
 | Primary Actor | Administrator |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -97,8 +97,8 @@ Assigns administrative or merchant roles to user account.
 
 ## Secondary Actors
 
-- user-service
-- Database (user_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -113,8 +113,8 @@ Admin Role & Privilege Assignment is initiated via incoming client API request o
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (user-service) is online and responsive.
-- [ ] Database connection to user_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -129,13 +129,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 2
 
-**Role Update**: Updates user roles array in `user_db`.
+**Role Update**: Updates user roles array in `identity_db`.
 
 ---
 
 ## Step 3
 
-**Session Invalidation**: Calls Auth Service to revoke active JWT refresh sessions for targeted user ID.
+**Session Invalidation**: Calls Identity Service to revoke active JWT refresh sessions for targeted user ID.
 
 ---
 
@@ -203,9 +203,9 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Admin as Platform Admin
-  participant UserSvc as User Service (:3002)
-  participant Auth as Auth Service (:3001)
-  participant DB as PostgreSQL (user_db)
+  participant UserSvc as Identity Service · User (:3001)
+  participant Auth as Identity Service · Auth (:3001)
+  participant DB as PostgreSQL (identity_db)
 
   Admin->>UserSvc: PATCH /api/v1/admin/users/{id}/status (roles: ['SELLER'])
   UserSvc->>UserSvc: Verify Requester Roles == ADMIN / SUPER_ADMIN
@@ -233,7 +233,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in user_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -455,7 +455,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- user-service
+- identity-service
 
 ---
 
@@ -468,7 +468,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (user_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

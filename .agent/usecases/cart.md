@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/cart-service/`  
 > **Default Port:** `3005`  
-> **Business Rules Reference:** [cart.md](../business/cart.md)  
+> **Business Rules Reference:** [cart.md](../business-rules/cart.md)  
 
 ---
 

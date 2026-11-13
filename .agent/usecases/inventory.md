@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/inventory-service/`  
 > **Default Port:** `3004`  
-> **Business Rules Reference:** [inventory.md](../business/inventory.md)  
+> **Business Rules Reference:** [inventory.md](../business-rules/inventory.md)  
 
 ---
 

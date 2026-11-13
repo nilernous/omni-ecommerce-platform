@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/shipping-service/`  
 > **Default Port:** `3008`  
-> **Business Rules Reference:** [shipping.md](../business/shipping.md)  
+> **Business Rules Reference:** [shipping.md](../business-rules/shipping.md)  
 
 ---
 

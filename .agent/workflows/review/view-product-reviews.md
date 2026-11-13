@@ -11,7 +11,7 @@ status: Approved
 
 domain: Review
 
-target_service: review-service
+target_service: product-service
 
 owner: Review Team
 
@@ -83,7 +83,7 @@ Retrieves aggregated ratings and customer reviews for a product.
 | Property | Value |
 |----------|--------|
 | Domain | Review |
-| Target Service | review-service |
+| Target Service | product-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -98,8 +98,8 @@ Retrieves aggregated ratings and customer reviews for a product.
 
 ## Secondary Actors
 
-- review-service
-- Database (review_db)
+- product-service
+- Database (product_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -114,8 +114,8 @@ View Product Reviews & Aggregate Rating is initiated via incoming client API req
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (review-service) is online and responsive.
-- [ ] Database connection to review_db is active.
+- [ ] Target service (product-service) is online and responsive.
+- [ ] Database connection to product_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -198,8 +198,8 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Client as Customer / Public User
-  participant RevSvc as Review Service (:3100)
-  participant DB as PostgreSQL (review_db)
+  participant RevSvc as Product Service · Review (:3003)
+  participant DB as PostgreSQL (product_db)
 
   Client->>RevSvc: GET /api/v1/reviews/products/{productId}?page=1
   RevSvc->>DB: SELECT * FROM reviews WHERE product_id = ? AND status = 'APPROVED'
@@ -227,7 +227,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in review_db.
+- Target entity attributes in product_db.
 
 ## Deleted
 
@@ -451,7 +451,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- review-service
+- product-service
 
 ---
 
@@ -464,7 +464,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (review_db)
+- PostgreSQL (product_db)
 - Redis Cache
 
 ---

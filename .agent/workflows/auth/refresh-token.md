@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -84,7 +84,7 @@ Rotates user access and refresh tokens while invalidating consumed refresh token
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -99,8 +99,8 @@ Rotates user access and refresh tokens while invalidating consumed refresh token
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -115,8 +115,8 @@ Access & Refresh Token Rotation is initiated via incoming client API request or 
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -131,7 +131,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 2
 
-**Hash & Database Lookup**: Hashes token string and queries `auth_db` for active refresh token session (`AUTH-BR-08`).
+**Hash & Database Lookup**: Hashes token string and queries `identity_db` for active refresh token session (`AUTH-BR-08`).
 
 ---
 
@@ -155,7 +155,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 6
 
-**Session Update**: Persists new refresh token in `auth_db` and returns rotated credentials to client.
+**Session Update**: Persists new refresh token in `identity_db` and returns rotated credentials to client.
 
 ---
 
@@ -234,8 +234,8 @@ sequenceDiagram
   autonumber
   actor Client as Client App
   participant Gateway as API Gateway (:3000)
-  participant Auth as Auth Service (:3001)
-  participant DB as PostgreSQL (auth_db)
+  participant Auth as Identity Service · Auth (:3001)
+  participant DB as PostgreSQL (identity_db)
 
   Client->>Gateway: POST /api/v1/auth/refresh-token (Refresh Token Cookie/Payload)
   Gateway->>Auth: Forward Token Rotation Request
@@ -274,7 +274,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -500,7 +500,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -513,7 +513,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

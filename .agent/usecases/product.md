@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/product-service/`  
 > **Default Port:** `3003`  
-> **Business Rules Reference:** [product.md](../business/product.md)  
+> **Business Rules Reference:** [product.md](../business-rules/product.md)  
 
 ---
 

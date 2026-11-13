@@ -40,8 +40,8 @@
   - [2.5 Indexing Strategy & Naming Conventions](#25-indexing-strategy--naming-conventions)
   - [2.6 Outbox Pattern Database Schema Standard](#26-outbox-pattern-database-schema-standard)
 - [3. Microservice Database Schemas](#3-microservice-database-schemas)
-  - [3.1 Auth Service (`auth_db` - PostgreSQL)](#31-auth-service-auth_db---postgresql)
-  - [3.2 User Service (`user_db` - PostgreSQL)](#32-user-service-user_db---postgresql)
+  - [3.1 Identity Service — Auth Domain (`identity_db` - PostgreSQL)](#31-identity-service--auth-domain-identity_db---postgresql)
+  - [3.2 Identity Service — User Domain (`identity_db` - PostgreSQL)](#32-identity-service--user-domain-identity_db---postgresql)
   - [3.3 Product Catalog Service (`product_db` - PostgreSQL)](#33-product-catalog-service-product_db---postgresql)
   - [3.4 Inventory Service (`inventory_db` - PostgreSQL)](#34-inventory-service-inventory_db---postgresql)
   - [3.5 Cart Service (`cart_db` - Redis & PostgreSQL)](#35-cart-service-cart_db---redis--postgresql)
@@ -49,7 +49,7 @@
   - [3.7 Payment Service (`payment_db` - PostgreSQL)](#37-payment-service-payment_db---postgresql)
   - [3.8 Shipping Service (`shipping_db` - PostgreSQL)](#38-shipping-service-shipping_db---postgresql)
   - [3.9 Promotion Service (`promotion_db` - PostgreSQL & Redis)](#39-promotion-service-promotion_db---postgresql--redis)
-  - [3.10 Review Service (`review_db` - PostgreSQL)](#310-review-service-review_db---postgresql)
+  - [3.10 Product Service — Review Domain (`product_db` - PostgreSQL)](#310-product-service--review-domain-product_db---postgresql)
   - [3.11 Notification Service (`notification_db` - PostgreSQL)](#311-notification-service-notification_db---postgresql)
   - [3.12 Media Service (`media_db` - PostgreSQL & Object Storage)](#312-media-service-media_db---postgresql--object-storage)
   - [3.13 Analytics Service (`analytics_db` - TimescaleDB)](#313-analytics-service-analytics_db---timescaledb)
@@ -75,16 +75,14 @@
 This document defines the comprehensive **Database Architecture** for the **OmniCommerce** platform. It provides the definitive technical blueprint for storage engine choices, data isolation boundaries, relational database schemas (Prisma ORM models), indexing strategies, caching layers, search engine mappings, time-series data structures, and cross-service data consistency patterns.
 
 This specification covers every backend business microservice in OmniCommerce:
-- **Auth Service** (`auth_db`)
-- **User Service** (`user_db`)
-- **Product Catalog Service** (`product_db`)
+- **Identity Service** (`identity_db`): Auth + User domains
+- **Product Catalog Service** (`product_db`): Catalog + Review domains
 - **Inventory Service** (`inventory_db`)
 - **Cart Service** (`cart_db`)
 - **Order Service** (`order_db`)
 - **Payment Service** (`payment_db`)
 - **Shipping Service** (`shipping_db`)
 - **Promotion Service** (`promotion_db`)
-- **Review Service** (`review_db`)
 - **Notification Service** (`notification_db`)
 - **Media Management Service** (`media_db`)
 - **Analytics Service** (`analytics_db`)
@@ -241,11 +239,11 @@ model OutboxEvent {
 
 # 3. Microservice Database Schemas
 
-## 3.1 Auth Service (`auth_db` - PostgreSQL)
+## 3.1 Identity Service — Auth Domain (`identity_db` - PostgreSQL)
 
 ### 3.1.1 Overview & Responsibilities
-- **Database Name:** `omni_auth_db`
-- **Owner Service:** `auth-service` (Port `3001`)
+- **Database Name:** `omni_identity_db`
+- **Owner Service:** `identity-service` (Port `3001`)
 - **Responsibilities:** User credential authentication, password hashing (Argon2id/Bcrypt), JWT refresh token lifecycle, password reset tokens, failed login lockout counters.
 
 ### 3.1.2 ER Conceptual Diagram
@@ -259,12 +257,14 @@ model OutboxEvent {
                                        └──────────────────┘
 ```
 
-### 3.1.3 Prisma Schema (`apps/backend/auth-service/prisma/schema.prisma`)
+### 3.1.3 Prisma Schema (`apps/backend/identity-service/prisma/schema.prisma`)
+
+One schema file holds both identity domains. `UserProfile.id` shares its primary key with `AuthUser.id` (1:1), so registration writes credentials, profile and preferences in a single transaction (`AUTH-BR-06`, `USER-BR-16`).
 
 ```prisma
 datasource db {
   provider = "postgresql"
-  url      = env("AUTH_DATABASE_URL")
+  url      = env("IDENTITY_DATABASE_URL")
 }
 
 generator client {
@@ -294,6 +294,7 @@ model AuthUser {
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
+  profile        UserProfile?
   refreshTokens  RefreshToken[]
   passwordResets PasswordReset[]
 
@@ -332,39 +333,10 @@ model PasswordReset {
   @@index([tokenHash], name: "idx_password_resets_hash")
   @@map("password_resets")
 }
-```
 
----
-
-## 3.2 User Service (`user_db` - PostgreSQL)
-
-### 3.2.1 Overview & Responsibilities
-- **Database Name:** `omni_user_db`
-- **Owner Service:** `user-service` (Port `3002`)
-- **Responsibilities:** User profile information, delivery addresses (max 10 per user), default address management, user notification preferences.
-
-### 3.2.2 ER Conceptual Diagram
-```text
-  ┌──────────────────┐       1:N       ┌──────────────────┐
-  │   UserProfile    │────────────────>│ DeliveryAddress  │
-  └────────┬─────────┘                 └──────────────────┘
-           │
-           │ 1:1                       ┌──────────────────┐
-           └──────────────────────────>│ UserPreferences  │
-                                       └──────────────────┘
-```
-
-### 3.2.3 Prisma Schema (`apps/backend/user-service/prisma/schema.prisma`)
-
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("USER_DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
+// ---------------------------------------------------------------------------
+// User domain (profiles, addresses, preferences) — formerly user-service
+// ---------------------------------------------------------------------------
 
 enum Gender {
   MALE
@@ -374,7 +346,7 @@ enum Gender {
 }
 
 model UserProfile {
-  id          String    @id @default(uuid()) @db.Uuid // Matches AuthUser ID
+  id          String    @id @default(uuid()) @db.Uuid
   firstName   String    @map("first_name") @db.VarChar(100)
   lastName    String    @map("last_name") @db.VarChar(100)
   phone       String?   @db.VarChar(20)
@@ -384,6 +356,8 @@ model UserProfile {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // Shares its primary key with AuthUser (same identity_db, 1:1).
+  authUser    AuthUser  @relation(fields: [id], references: [id], onDelete: Cascade)
   addresses   DeliveryAddress[]
   preferences UserPreferences?
 
@@ -423,7 +397,47 @@ model UserPreferences {
 
   @@map("user_preferences")
 }
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(64)
+  eventType     String    @map("event_type") @db.VarChar(128)
+  payloadJson   Json      @map("payload_json") @db.JsonB
+  status        String    @default("PENDING") @db.VarChar(32)
+  retryCount    Int       @default(0) @map("retry_count")
+  lastError     String?   @map("last_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], name: "idx_outbox_events_status_created")
+  @@map("outbox_events")
+}
 ```
+
+---
+
+## 3.2 Identity Service — User Domain (`identity_db` - PostgreSQL)
+
+### 3.2.1 Overview & Responsibilities
+- **Database Name:** `omni_identity_db`
+- **Owner Service:** `identity-service` (Port `3001`)
+- **Responsibilities:** User profile information, delivery addresses (max 10 per user), default address management, user notification preferences.
+
+### 3.2.2 ER Conceptual Diagram
+```text
+  ┌──────────────────┐       1:N       ┌──────────────────┐
+  │   UserProfile    │────────────────>│ DeliveryAddress  │
+  └────────┬─────────┘                 └──────────────────┘
+           │
+           │ 1:1                       ┌──────────────────┐
+           └──────────────────────────>│ UserPreferences  │
+                                       └──────────────────┘
+```
+
+### 3.2.3 Prisma Schema (`apps/backend/identity-service/prisma/schema.prisma`)
+
+The `UserProfile`, `DeliveryAddress` and `UserPreferences` models live in the same schema file as the Auth domain. See [3.1.3](#313-prisma-schema-appsbackendidentity-serviceprismaschemaprisma).
 
 ---
 
@@ -447,6 +461,8 @@ model UserPreferences {
 ```
 
 ### 3.3.3 Prisma Schema (`apps/backend/product-service/prisma/schema.prisma`)
+
+One schema file holds both the Catalog and Review domains. `ProductReview.productId` is a real foreign key to `Product`, and `averageRating` / `reviewCount` are updated in the same transaction as review approval (`REV-BR-09`).
 
 ```prisma
 datasource db {
@@ -517,6 +533,7 @@ model Product {
   brand    Brand?         @relation(fields: [brandId], references: [id])
   skus     ProductSku[]
   images   ProductImage[]
+  reviews  ProductReview[]
 
   @@index([sellerId], name: "idx_products_seller_id")
   @@index([categoryId], name: "idx_products_category_id")
@@ -528,7 +545,7 @@ model ProductSku {
   id         String   @id @default(uuid()) @db.Uuid
   productId  String   @map("product_id") @db.Uuid
   sku        String   @unique @db.VarChar(64)
-  attributes Json     @db.JsonB // e.g., {"color": "Red", "size": "XL"}
+  attributes Json     @db.JsonB
   price      Decimal  @db.Decimal(12, 4)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -548,6 +565,52 @@ model ProductImage {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("product_images")
+}
+
+// ---------------------------------------------------------------------------
+// Review domain — formerly review-service. Lives in product_db so that
+// Product.averageRating / reviewCount update in the same transaction (REV-BR-09).
+// ---------------------------------------------------------------------------
+
+enum ReviewStatus {
+  PENDING_MODERATION
+  APPROVED
+  REJECTED
+}
+
+model ProductReview {
+  id               String       @id @default(uuid()) @db.Uuid
+  productId        String       @map("product_id") @db.Uuid
+  customerId       String       @map("customer_id") @db.Uuid
+  orderId          String       @map("order_id") @db.Uuid
+  rating           Int
+  comment          String       @db.Text
+  verifiedPurchase Boolean      @default(true) @map("verified_purchase")
+  status           ReviewStatus @default(APPROVED)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, productId, orderId], name: "uq_customer_product_order_review")
+  @@index([productId, status], name: "idx_reviews_product_status")
+  @@map("product_reviews")
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(64)
+  eventType     String    @map("event_type") @db.VarChar(128)
+  payloadJson   Json      @map("payload_json") @db.JsonB
+  status        String    @default("PENDING") @db.VarChar(32)
+  retryCount    Int       @default(0) @map("retry_count")
+  lastError     String?   @map("last_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], name: "idx_outbox_events_status_created")
+  @@map("outbox_events")
 }
 ```
 
@@ -926,48 +989,16 @@ model CouponRedemption {
 
 ---
 
-## 3.10 Review Service (`review_db` - PostgreSQL)
+## 3.10 Product Service — Review Domain (`product_db` - PostgreSQL)
 
 ### 3.10.1 Overview & Responsibilities
-- **Database Name:** `omni_review_db`
-- **Owner Service:** `review-service` (Port `3010`)
+- **Database Name:** `omni_product_db`
+- **Owner Service:** `product-service` (Port `3003`)
 - **Responsibilities:** Product reviews, rating (1-5 stars), verified purchase check, automated profanity moderation queue.
 
-### 3.10.2 Prisma Schema (`apps/backend/review-service/prisma/schema.prisma`)
+### 3.10.2 Prisma Schema (`apps/backend/product-service/prisma/schema.prisma`)
 
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("REVIEW_DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-enum ReviewStatus {
-  PENDING_MODERATION
-  APPROVED
-  REJECTED
-}
-
-model ProductReview {
-  id                String       @id @default(uuid()) @db.Uuid
-  productId         String       @map("product_id") @db.Uuid
-  customerId        String       @map("customer_id") @db.Uuid
-  orderId           String       @map("order_id") @db.Uuid
-  rating            Int          // 1 to 5
-  comment           String       @db.Text
-  verifiedPurchase  Boolean      @default(true) @map("verified_purchase")
-  status            ReviewStatus @default(APPROVED)
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([customerId, productId, orderId], name: "uq_customer_product_order_review")
-  @@index([productId, status], name: "idx_reviews_product_status")
-  @@map("product_reviews")
-}
-```
+The `ProductReview` model and `ReviewStatus` enum live in the product-service schema file. See [3.3.3](#333-prisma-schema-appsbackendproduct-serviceprismaschemaprisma).
 
 ---
 
@@ -1191,7 +1222,7 @@ To prevent PostgreSQL process limit exhaustion, microservices connect to Postgre
 
 ## 4.2 Read Replicas & Read/Write Separation
 
-High-traffic read microservices (Product Service, Review Service) utilize Prisma's read-replica extension to direct `SELECT` queries to read-replicas while keeping write transactions on the primary node.
+High-traffic read microservices (Product Service, including its Review module) utilize Prisma's read-replica extension to direct `SELECT` queries to read-replicas while keeping write transactions on the primary node.
 
 ---
 

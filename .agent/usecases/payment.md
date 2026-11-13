@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/payment-service/`  
 > **Default Port:** `3007`  
-> **Business Rules Reference:** [payment.md](../business/payment.md)  
+> **Business Rules Reference:** [payment.md](../business-rules/payment.md)  
 
 ---
 

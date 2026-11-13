@@ -1,14 +1,15 @@
-# Auth Service Business Rules
+# Auth Domain Business Rules (Identity Service)
 
-> **Service Path:** `apps/backend/auth-service/`  
+> **Service Path:** `apps/backend/identity-service/`  
 > **Default Port:** `3001`  
-> **Primary Storage:** PostgreSQL (`auth_db`) + Redis (`session_cache`)  
+> **Module:** `src/modules/auth` (shares `identity_db` with the User module)  
+> **Primary Storage:** PostgreSQL (`identity_db`) + Redis (`session_cache`)  
 > **Documentation Ref:** [BACKEND_ARCHITECTURE.md](../../docs/02-backend/BACKEND_ARCHITECTURE.md), [API_ARCHITECTURE.md](../../docs/02-backend/API_ARCHITECTURE.md)  
 
 ---
 
 ## 1. Domain Overview & Purpose
-The **Auth Service** is the central identity provider for OmniCommerce. It handles user registration, authentication, credential validation, JWT token issuance/rotation, password resets, session management, and token revocation.
+The **Auth module of the Identity Service** is the central identity provider for OmniCommerce. It handles user registration, authentication, credential validation, JWT token issuance/rotation, password resets, session management, and token revocation.
 
 ---
 
@@ -22,7 +23,7 @@ The **Auth Service** is the central identity provider for OmniCommerce. It handl
   - Must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (`!@#$%^&*`).
 - **AUTH-BR-04: Credential Hashing**: Passwords must be hashed using **Argon2id** (or **Bcrypt** with work factor 12) before database persistence. Plaintext passwords must never be stored, logged, or returned in API responses.
 - **AUTH-BR-05: Default Role Assignment**: Newly registered users are assigned the `CUSTOMER` role by default unless registered via the merchant portal (`SELLER`). Admin roles (`ADMIN`, `SUPER_ADMIN`) cannot be self-assigned.
-- **AUTH-BR-06: Identity Outbox Emission**: Successful registration must transactionally commit a `user` record and enqueue an `auth.user.registered` domain event in the local outbox table.
+- **AUTH-BR-06: Identity Outbox Emission**: Successful registration must commit the credential record (`users`), the initial profile and preference records (`user_profiles`, `user_preferences`, see `USER-BR-16`), and the `auth.user.registered` outbox record in a single `identity_db` transaction.
 
 ### Authentication & Token Rules
 - **AUTH-BR-07: Access Token Lifecycle**:
@@ -31,9 +32,9 @@ The **Auth Service** is the central identity provider for OmniCommerce. It handl
   - Required claims: `sub` (User ID), `email`, `roles`, `permissions`, `iss`, `iat`, `exp`, `jti`.
 - **AUTH-BR-08: Refresh Token Storage**:
   - Refresh Token TTL: **7 Days**.
-  - Stored securely in `auth_db` as a SHA-256 hashed string alongside device IP, user-agent metadata, and expiration date.
+  - Stored securely in `identity_db` as a SHA-256 hashed string alongside device IP, user-agent metadata, and expiration date.
 - **AUTH-BR-09: Single-Use Token Rotation**: Executing `POST /api/v1/auth/refresh-token` validates the current refresh token, invalidates it immediately, and issues a new access token and refresh token pair.
-- **AUTH-BR-10: Token Reuse Detection**: If a previously revoked or replaced refresh token is submitted, the Auth Service flags a security breach, invalidates ALL active refresh tokens for that user ID, and forces full re-authentication.
+- **AUTH-BR-10: Token Reuse Detection**: If a previously revoked or replaced refresh token is submitted, the Identity Service flags a security breach, invalidates ALL active refresh tokens for that user ID, and forces full re-authentication.
 - **AUTH-BR-11: Brute Force Account Lockout**:
   - Maximum allowed failed login attempts: **5 consecutive failures** within a 15-minute sliding window per IP/email pair.
   - Exceeding limit locks account authentication for **15 minutes** (HTTP 429 / 401 with lockout metadata).

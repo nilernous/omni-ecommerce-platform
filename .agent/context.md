@@ -90,9 +90,8 @@ omnicommerce/
 │   │   └── seller-bff/          # Tailored APIs for Merchant Store Operations
 │   └── backend/                 # Core Microservices (NestJS)
 │       ├── api-gateway/         # Central API Gateway
-│       ├── auth-service/        # Authentication & Identity
-│       ├── user-service/        # User Profile Management
-│       ├── product-service/     # Product Catalog & Categories
+│       ├── identity-service/    # Auth (JWT, credentials) + User (profiles, addresses, roles)
+│       ├── product-service/     # Product Catalog, Categories + Reviews & Ratings
 │       ├── inventory-service/   # Warehouse Stock & Reservations
 │       ├── cart-service/        # Shopping Cart Operations
 │       ├── order-service/       # Order Lifecycle Management

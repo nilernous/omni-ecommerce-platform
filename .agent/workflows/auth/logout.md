@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -82,7 +82,7 @@ Revokes active user session and invalidates refresh tokens.
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -97,8 +97,8 @@ Revokes active user session and invalidates refresh tokens.
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -113,8 +113,8 @@ User Logout & Session Revocation is initiated via incoming client API request or
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -123,13 +123,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 1
 
-**Token Extraction**: Auth Service reads `jti` claim and expiration timestamp from valid access token context.
+**Token Extraction**: Identity Service reads `jti` claim and expiration timestamp from valid access token context.
 
 ---
 
 ## Step 2
 
-**Refresh Token Revocation**: Updates refresh token status to `REVOKED` in `auth_db` (`AUTH-BR-08`).
+**Refresh Token Revocation**: Updates refresh token status to `REVOKED` in `identity_db` (`AUTH-BR-08`).
 
 ---
 
@@ -210,9 +210,9 @@ sequenceDiagram
   autonumber
   actor Client as Client App
   participant Gateway as API Gateway (:3000)
-  participant Auth as Auth Service (:3001)
+  participant Auth as Identity Service · Auth (:3001)
   participant Redis as Redis (session_cache)
-  participant DB as PostgreSQL (auth_db)
+  participant DB as PostgreSQL (identity_db)
 
   Client->>Gateway: POST /api/v1/auth/logout (Bearer Token + Refresh Cookie)
   Gateway->>Auth: Forward Logout Request
@@ -242,7 +242,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -464,7 +464,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -477,7 +477,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---

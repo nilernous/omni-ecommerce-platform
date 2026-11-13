@@ -11,7 +11,7 @@ status: Approved
 
 domain: Review
 
-target_service: review-service
+target_service: product-service
 
 owner: Review Team
 
@@ -88,7 +88,7 @@ Saves customer review and rating for verified purchased products.
 | Property | Value |
 |----------|--------|
 | Domain | Review |
-| Target Service | review-service |
+| Target Service | product-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -103,8 +103,8 @@ Saves customer review and rating for verified purchased products.
 
 ## Secondary Actors
 
-- review-service
-- Database (review_db)
+- product-service
+- Database (product_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -119,8 +119,8 @@ Submit Customer Product Review is initiated via incoming client API request or i
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (review-service) is online and responsive.
-- [ ] Database connection to review_db is active.
+- [ ] Target service (product-service) is online and responsive.
+- [ ] Database connection to product_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -153,7 +153,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 5
 
-**Persistence & Outbox**: Saves review to `review_db` and emits `review.submitted` event (`REV-BR-10`).
+**Persistence & Outbox**: Saves review to `product_db` and emits `review.submitted` event (`REV-BR-10`).
 
 ---
 
@@ -221,9 +221,9 @@ Operation rejected without state modification.
 sequenceDiagram
   autonumber
   actor Customer as Authenticated Customer
-  participant RevSvc as Review Service (:3100)
+  participant RevSvc as Product Service · Review (:3003)
   participant OrderSvc as Order Service (:3006)
-  participant DB as PostgreSQL (review_db)
+  participant DB as PostgreSQL (product_db)
   participant Broker as RabbitMQ Event Bus
 
   Customer->>RevSvc: POST /api/v1/reviews/products/{productId} (rating, comment)
@@ -269,7 +269,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in review_db.
+- Target entity attributes in product_db.
 
 ## Deleted
 
@@ -503,7 +503,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- review-service
+- product-service
 
 ---
 
@@ -516,7 +516,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (review_db)
+- PostgreSQL (product_db)
 - Redis Cache
 
 ---

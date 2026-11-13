@@ -1,14 +1,15 @@
-# User Service Business Rules
+# User Domain Business Rules (Identity Service)
 
-> **Service Path:** `apps/backend/user-service/`  
-> **Default Port:** `3002`  
-> **Primary Storage:** PostgreSQL (`user_db`)  
+> **Service Path:** `apps/backend/identity-service/`  
+> **Default Port:** `3001`  
+> **Module:** `src/modules/user` (shares `identity_db` with the Auth module)  
+> **Primary Storage:** PostgreSQL (`identity_db`)  
 > **Documentation Ref:** [BACKEND_ARCHITECTURE.md](../../docs/02-backend/BACKEND_ARCHITECTURE.md), [API_ARCHITECTURE.md](../../docs/02-backend/API_ARCHITECTURE.md)  
 
 ---
 
 ## 1. Domain Overview & Purpose
-The **User Service** manages customer and user profile information, contact details, shipping addresses, notification preferences, and role/permission assignment tracking.
+The **User module of the Identity Service** manages customer and user profile information, contact details, shipping addresses, notification preferences, and role/permission assignment tracking.
 
 ---
 
@@ -65,8 +66,8 @@ User Entity (1) ──── (0..10) Delivery Address Entities
 - **USER-BR-14: Event `user.profile.updated`**: Emitted when user updates contact or profile info.
 - **USER-BR-15: Event `user.address.updated`**: Emitted when shipping addresses are added, modified, or set as default.
 
-### Consumed Events
-- **USER-BR-16: Event `auth.user.registered`**: Triggers initial user profile and preference record creation in `user_db`.
+### Registration Side-Effects (in-process)
+- **USER-BR-16: Initial Profile Creation**: Initial user profile and preference records are created in the same `identity_db` transaction as the credential record during registration (`AUTH-BR-06`). The User module does not consume `auth.user.registered`; that event exists only for external consumers (Notification, Analytics).
 
 ---
 

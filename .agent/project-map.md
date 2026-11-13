@@ -77,16 +77,14 @@ omnicommerce/
 │   │   └── seller-bff/          # Tailored APIs for Merchant Seller Portal
 │   └── backend/                 # API Gateway & Core Microservices (NestJS)
 │       ├── api-gateway/         # Edge Request Routing & Rate Limiting Gateway
-│       ├── auth-service/        # Identity, JWT Tokens & Authentication
-│       ├── user-service/        # User Profiles, Addresses & Roles
-│       ├── product-service/     # Product Catalog, Categories & Brands
+│       ├── identity-service/    # Auth module (JWT, credentials, lockout) + User module (profiles, addresses, roles)
+│       ├── product-service/     # Product Catalog, Categories, Brands + Review module (ratings & reviews)
 │       ├── inventory-service/   # Warehouse Stock & Reservations
 │       ├── cart-service/        # Active Shopping Carts & Guest Carts
 │       ├── order-service/       # Order Lifecycle & State Machine
 │       ├── payment-service/     # Gateway Integrations & Transactions
 │       ├── shipping-service/    # Fulfillment, Rates & Tracking
 │       ├── promotion-service/   # Coupons, Discounts & Campaigns
-│       ├── review-service/      # Product Ratings & Customer Reviews
 │       ├── media-service/       # Image/File Uploads & CDN Assets
 │       ├── search-service/      # Catalog Search Indexing (Elasticsearch)
 │       ├── notification-service/# Email, SMS & Mobile Push Notifications
@@ -160,16 +158,14 @@ All microservices are implemented using **NestJS**, operating as independent dom
 | Service Name | Directory Path | Default Port | Primary Data Store | Primary Domain Responsibility |
 |---|---|---|---|---|
 | **API Gateway** | `apps/backend/api-gateway/` | `3000` | Redis (Rate Limits) | Central entry point, public routing, SSL, JWT verification, rate limiting, correlation ID injection. |
-| **Auth Service** | `apps/backend/auth-service/` | `3001` | PostgreSQL + Redis | Identity management, user registration, JWT issue/refresh, OAuth2, password hashing, session revocation. |
-| **User Service** | `apps/backend/user-service/` | `3002` | PostgreSQL | User profiles, shipping addresses, customer preferences, RBAC role definitions. |
-| **Product Service** | `apps/backend/product-service/` | `3003` | PostgreSQL | Master product catalog, SKU management, categories, brands, product variants, attributes. |
+| **Identity Service** | `apps/backend/identity-service/` | `3001` | PostgreSQL (`identity_db`) + Redis | **Auth module:** registration, JWT issue/refresh, OAuth2, password hashing, session revocation. **User module:** profiles, shipping addresses, customer preferences, RBAC role definitions. |
+| **Product Service** | `apps/backend/product-service/` | `3003` | PostgreSQL (`product_db`) | Master product catalog, SKU management, categories, brands, product variants, attributes. **Review module:** review submission, moderation, rating aggregates. |
 | **Inventory Service**| `apps/backend/inventory-service/` | `3004` | PostgreSQL + Redis | Stock levels across warehouses, stock reservations during checkout, safety stock alerts. |
 | **Cart Service** | `apps/backend/cart-service/` | `3005` | Redis | Active shopping cart items, guest cart persistence, quantity modifications, cart TTL. |
 | **Order Service** | `apps/backend/order-service/` | `3006` | PostgreSQL | Order creation, state machine transitions (Pending, Paid, Shipped, Delivered, Cancelled). |
 | **Payment Service** | `apps/backend/payment-service/` | `3007` | PostgreSQL | Payment gateway integrations (Stripe, PayPal), transaction logs, refund processing, webhooks. |
 | **Shipping Service** | `apps/backend/shipping-service/` | `3008` | PostgreSQL | Carrier integrations, shipment generation, tracking numbers, shipping rate calculation. |
 | **Promotion Service**| `apps/backend/promotion-service/` | `3009` | PostgreSQL + Redis | Discount codes, flash sale rules, promotional campaigns, voucher validation. |
-| **Review Service** | `apps/backend/review-service/` | `3010` | PostgreSQL | Product ratings, customer review submission, review moderation, rating aggregates. |
 | **Media Service** | `apps/backend/media-service/` | `3011` | MinIO / Cloudflare R2 | Image & video upload processing, thumbnail generation, CDN asset URL delivery. |
 | **Search Service** | `apps/backend/search-service/` | `3012` | Elasticsearch | Full-text product search indexing, autocomplete, facet filters, search sync from Product Service. |
 | **Notification** | `apps/backend/notification-service/` | `3013` | PostgreSQL + RabbitMQ | Email delivery (Nodemailer), SMS gateway, Firebase Cloud Messaging (FCM) mobile push alerts. |
@@ -301,16 +297,14 @@ docs/
 | **Customer BFF** | BFF | `apps/bff/customer-bff/` | `4001` | `/api/v1/customer/*` | Microservices |
 | **Admin BFF** | BFF | `apps/bff/admin-bff/` | `4002` | `/api/v1/admin/*` | Microservices |
 | **Seller BFF** | BFF | `apps/bff/seller-bff/` | `4003` | `/api/v1/seller/*` | Microservices |
-| **Auth Service** | Microservice | `apps/backend/auth-service/` | `3001` | `/api/v1/auth/*` | PostgreSQL, Redis |
-| **User Service** | Microservice | `apps/backend/user-service/` | `3002` | `/api/v1/users/*` | PostgreSQL |
-| **Product Service** | Microservice | `apps/backend/product-service/` | `3003` | `/api/v1/products/*` | PostgreSQL |
+| **Identity Service** | Microservice | `apps/backend/identity-service/` | `3001` | `/api/v1/auth/*`, `/api/v1/users/*` | PostgreSQL, Redis |
+| **Product Service** | Microservice | `apps/backend/product-service/` | `3003` | `/api/v1/products/*`, `/api/v1/reviews/*` | PostgreSQL |
 | **Inventory Service**| Microservice | `apps/backend/inventory-service/` | `3004` | `/api/v1/inventory/*` | PostgreSQL, Redis |
 | **Cart Service** | Microservice | `apps/backend/cart-service/` | `3005` | `/api/v1/cart/*` | Redis (`6379`) |
 | **Order Service** | Microservice | `apps/backend/order-service/` | `3006` | `/api/v1/orders/*` | PostgreSQL, RabbitMQ |
 | **Payment Service** | Microservice | `apps/backend/payment-service/` | `3007` | `/api/v1/payments/*` | PostgreSQL, RabbitMQ |
 | **Shipping Service** | Microservice | `apps/backend/shipping-service/` | `3008` | `/api/v1/shipping/*` | PostgreSQL, RabbitMQ |
 | **Promotion Service**| Microservice | `apps/backend/promotion-service/` | `3009` | `/api/v1/promotions/*` | PostgreSQL, Redis |
-| **Review Service** | Microservice | `apps/backend/review-service/` | `3010` | `/api/v1/reviews/*` | PostgreSQL |
 | **Media Service** | Microservice | `apps/backend/media-service/` | `3011` | `/api/v1/media/*` | MinIO / S3 (`9000`) |
 | **Search Service** | Microservice | `apps/backend/search-service/` | `3012` | `/api/v1/search/*` | Elasticsearch (`9200`) |
 | **Notification** | Microservice | `apps/backend/notification-service/` | `3013` | Internal AMQP | PostgreSQL, RabbitMQ |

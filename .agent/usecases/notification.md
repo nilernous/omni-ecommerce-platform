@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/notification-service/`  
 > **Default Port:** `3013`  
-> **Business Rules Reference:** [notification.md](../business/notification.md)  
+> **Business Rules Reference:** [notification.md](../business-rules/notification.md)  
 
 ---
 
@@ -15,7 +15,7 @@
   1. Notification Service parses event payload (recipient email, recipient name, order details).
   2. Service checks notification type:
      - Transactional notifications (Welcome, Order Placed, Password Reset) bypass marketing opt-out check (`NOTIF-BR-04`).
-     - Promotional notifications check User Service preferences (`marketingEnabled == true`, `NOTIF-BR-05`).
+     - Promotional notifications check Identity Service preferences (`marketingEnabled == true`, `NOTIF-BR-05`).
   3. Service loads HTML Handlebars template for event type (`NOTIF-BR-01`).
   4. Service renders Handlebars template with event data.
   5. Service publishes an email dispatch message to RabbitMQ exchange `omni.notification.dispatch` (routing key `email`) (`NOTIF-BR-06`).
@@ -50,7 +50,7 @@
 - **Preconditions**: User has registered active FCM device token in Flutter mobile app.
 - **Trigger**: Domain event received (`order.created`, `order.shipped`, `order.delivered`).
 - **Main Success Scenario**:
-  1. Notification Service queries User Service for recipient's FCM device push tokens.
+  1. Notification Service queries Identity Service for recipient's FCM device push tokens.
   2. Service constructs FCM push payload (title, body, orderId deep link) (`NOTIF-BR-03`).
   3. Service calls Firebase Cloud Messaging (FCM) API.
   4. FCM delivers push notification to customer's iOS / Android device.

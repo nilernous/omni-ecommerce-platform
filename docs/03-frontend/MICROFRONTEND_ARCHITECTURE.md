@@ -2754,7 +2754,7 @@ Customer BFF
 
 ↓
 
-User Service
+Identity Service
 
 ↓
 

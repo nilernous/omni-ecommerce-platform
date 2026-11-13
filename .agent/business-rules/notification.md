@@ -21,7 +21,7 @@ The **Notification Service** handles multi-channel communication dispatching (Em
 
 ### User Preference Enforcement
 - **NOTIF-BR-04: Mandatory Transactional Messages**: Transactional notifications (Password Reset, Order Placed, Payment Receipts) CANNOT be unsubscribed or opted out by users.
-- **NOTIF-BR-05: Marketing Preference Check**: Promotional notifications (Flash Sales, Discounts) MUST check User Service preferences (`marketingEnabled = true`). If user opted out, message is skipped.
+- **NOTIF-BR-05: Marketing Preference Check**: Promotional notifications (Flash Sales, Discounts) MUST check Identity Service preferences (`marketingEnabled = true`). If user opted out, message is skipped.
 
 ### Retry & Delivery Guarantees
 - **NOTIF-BR-06: Asynchronous Queueing**: Outbound notifications are published as dispatch messages to the RabbitMQ topic exchange `omni.notification.dispatch` (routing keys `email`, `sms`, `push`) and consumed from durable per-channel queues (`omni.notification.email-dispatch.queue`, `omni.notification.sms-dispatch.queue`, `omni.notification.push-dispatch.queue`) to decouple dispatching from event emission.

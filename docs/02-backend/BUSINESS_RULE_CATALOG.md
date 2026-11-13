@@ -14,7 +14,7 @@
 This document serves as the **Master Business Rule Catalog** for the OmniCommerce e-commerce backend platform. It consolidates all domain business rules, entity constraints, validation logic, state machine transitions, caching policies, and event-driven workflows across all 14 core backend microservices.
 
 ### Universal Business Governance Rules:
-1. **Database per Service**: Every microservice owns a dedicated datastore (`auth_db`, `user_db`, `product_db`, etc.). Direct cross-database queries between microservices are strictly prohibited.
+1. **Database per Service**: Every microservice owns a dedicated datastore (`identity_db`, `product_db`, `order_db`, etc.). Direct cross-database queries between microservices are strictly prohibited.
 2. **Transactional Outbox Pattern**: State changes emitting domain events must write to a local `outbox` table within the same database transaction.
 3. **Idempotent Mutations & Consumers**: All state-modifying REST endpoints require an `Idempotency-Key` header, and event consumers must enforce message deduplication.
 4. **Strict Input Validation**: DTO payloads are validated at the API Gateway and BFF layers. Extra or unexpected fields are automatically rejected.
@@ -26,8 +26,8 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 
 | Prefix | Microservice Name | Port | Datastore | Rule Range | Main Domain Responsibility |
 |---|---|---|---|---|---|
-| `AUTH-BR` | **Auth Service** | `3001` | PostgreSQL (`auth_db`) + Redis | 01 - 20 | Identity, JWT issuance, password security, session revocation |
-| `USER-BR` | **User Service** | `3002` | PostgreSQL (`user_db`) | 01 - 17 | User profiles, delivery addresses, preference governance |
+| `AUTH-BR` | **Identity Service** (Auth domain) | `3001` | PostgreSQL (`identity_db`) + Redis | 01 - 20 | Identity, JWT issuance, password security, session revocation |
+| `USER-BR` | **Identity Service** (User domain) | `3001` | PostgreSQL (`identity_db`) | 01 - 17 | User profiles, delivery addresses, preference governance |
 | `PRD-BR` | **Product Service** | `3003` | PostgreSQL (`product_db`) + Redis | 01 - 18 | Product catalog, SKUs, categories, seller approval workflow |
 | `INV-BR` | **Inventory Service** | `3004` | PostgreSQL (`inventory_db`) + Redis | 01 - 17 | Stock balance tracking, reservations, safety stock alerts |
 | `CART-BR` | **Cart Service** | `3005` | Redis (`cart_store`) | 01 - 13 | Active shopping cart sessions, guest cart merging, TTLs |
@@ -35,7 +35,7 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 | `PAY-BR` | **Payment Service** | `3007` | PostgreSQL (`payment_db`) | 01 - 20 | Payment gateway processing, webhooks, refund execution |
 | `SHIP-BR` | **Shipping Service** | `3008` | PostgreSQL (`shipping_db`) | 01 - 18 | Carrier integrations, rate formulas, tracking, label printing |
 | `PROM-BR` | **Promotion Service** | `3009` | PostgreSQL (`promotion_db`) + Redis | 01 - 14 | Coupon discounts, flash sales, usage limits, campaign rules |
-| `REV-BR` | **Review Service** | `3010` | PostgreSQL (`review_db`) | 01 - 12 | Verified purchase product reviews, star ratings, moderation |
+| `REV-BR` | **Product Service** (Review domain) | `3003` | PostgreSQL (`product_db`) | 01 - 12 | Verified purchase product reviews, star ratings, moderation |
 | `MED-BR` | **Media Service** | `3011` | MinIO / S3 (`media_bucket`) + Postgres | 01 - 09 | File upload handling, MIME verification, image resizing |
 | `SRCH-BR` | **Search Service** | `3012` | Elasticsearch (`products_index`) | 01 - 11 | Full-text product search, auto-complete, faceted filters |
 | `NOTIF-BR`| **Notification Service**| `3013` | PostgreSQL (`notification_db`) + RabbitMQ| 01 - 12 | Multi-channel dispatch (Email, SMS, Push), templates |
@@ -45,8 +45,8 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 
 ## 3. Comprehensive Business Rules by Service Domain
 
-### 3.1 Auth Service (`AUTH-BR`)
-*Source Spec:* [.agent/business-rules/auth.md](../../.agent/business-rules/auth.md) | *Port:* `3001` | *Database:* PostgreSQL (`auth_db`) + Redis
+### 3.1 Identity Service — Auth Domain (`AUTH-BR`)
+*Source Spec:* [.agent/business-rules/auth.md](../../.agent/business-rules/auth.md) | *Port:* `3001` | *Database:* PostgreSQL (`identity_db`) + Redis
 
 #### Core Business Rules:
 - **`AUTH-BR-01: Email Uniqueness`**: Email addresses must be unique across the platform (case-insensitive check before user creation).
@@ -56,11 +56,11 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
   - Must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (`!@#$%^&*`).
 - **`AUTH-BR-04: Credential Hashing`**: Passwords must be hashed using Argon2id (or Bcrypt with work factor 12) before database persistence. Plaintext passwords are never logged, stored, or returned.
 - **`AUTH-BR-05: Default Role Assignment`**: Newly registered users are assigned `CUSTOMER` by default (or `SELLER` if registering via merchant portal). Admin roles (`ADMIN`, `SUPER_ADMIN`) cannot be self-assigned.
-- **`AUTH-BR-06: Identity Outbox Emission`**: Successful registration must commit the user record and enqueue `auth.user.registered` in `auth_outbox` in a single database transaction.
+- **`AUTH-BR-06: Identity Outbox Emission`**: Successful registration must commit the credential record (`users`), the initial profile and preference records (`user_profiles`, `user_preferences`, see `USER-BR-16`), and the `auth.user.registered` outbox record in a single `identity_db` transaction.
 - **`AUTH-BR-07: Access Token Lifecycle`**:
   - JWT Access Token TTL: **1 Hour (3600 seconds)**.
   - Signed using RS256 private key. Required claims: `sub`, `email`, `roles`, `permissions`, `iss`, `iat`, `exp`, `jti`.
-- **`AUTH-BR-08: Refresh Token Storage`**: Refresh Token TTL: **7 Days**. Stored in `auth_db` as SHA-256 hashed strings with IP, user-agent, and expiration date.
+- **`AUTH-BR-08: Refresh Token Storage`**: Refresh Token TTL: **7 Days**. Stored in `identity_db` as SHA-256 hashed strings with IP, user-agent, and expiration date.
 - **`AUTH-BR-09: Single-Use Token Rotation`**: Executing token refresh invalidates the used refresh token and issues a new access/refresh token pair.
 - **`AUTH-BR-10: Token Reuse Detection`**: Submitting a previously revoked or replaced refresh token flags a breach, revokes ALL active refresh tokens for that user ID, and forces re-authentication.
 - **`AUTH-BR-11: Brute Force Account Lockout`**: 5 consecutive failed login attempts within a 15-minute sliding window per IP/email locks authentication for **15 minutes**.
@@ -79,8 +79,8 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 
 ---
 
-### 3.2 User Service (`USER-BR`)
-*Source Spec:* [.agent/business-rules/user.md](../../.agent/business-rules/user.md) | *Port:* `3002` | *Database:* PostgreSQL (`user_db`)
+### 3.2 Identity Service — User Domain (`USER-BR`)
+*Source Spec:* [.agent/business-rules/user.md](../../.agent/business-rules/user.md) | *Port:* `3001` | *Database:* PostgreSQL (`identity_db`)
 
 #### Core Business Rules:
 - **`USER-BR-01: Profile Data Scope`**: Manages `firstName`, `lastName`, `phone`, `avatarUrl`, `gender`, `dateOfBirth`.
@@ -98,7 +98,7 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 - **`USER-BR-13: Role Privilege Governance`**: Roles (`CUSTOMER`, `SELLER`, `ADMIN`, `SUPER_ADMIN`) can only be modified by accounts possessing `ADMIN` or `SUPER_ADMIN` authorization.
 - **`USER-BR-14: Event user.profile.updated`**: Emitted when profile details are modified.
 - **`USER-BR-15: Event user.address.updated`**: Emitted when addresses are added, modified, or set as default.
-- **`USER-BR-16: Consumer auth.user.registered`**: Triggers initial user profile and preference record creation in `user_db`.
+- **`USER-BR-16: Initial Profile Creation`**: Initial user profile and preference records are created in the same `identity_db` transaction as the credential record during registration (`AUTH-BR-06`). The User module does not consume `auth.user.registered`; that event exists only for external consumers (Notification, Analytics).
 - **`USER-BR-17: Resource Ownership Enforcement`**: Users can only read, edit, or delete their own profile/address entities unless requester is `ADMIN` or `SUPER_ADMIN`.
 
 ---
@@ -330,8 +330,8 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 
 ---
 
-### 3.10 Review Service (`REV-BR`)
-*Source Spec:* [.agent/business-rules/review.md](../../.agent/business-rules/review.md) | *Port:* `3010` | *Database:* PostgreSQL (`review_db`)
+### 3.10 Product Service — Review Domain (`REV-BR`)
+*Source Spec:* [.agent/business-rules/review.md](../../.agent/business-rules/review.md) | *Port:* `3003` | *Database:* PostgreSQL (`product_db`)
 
 #### Core Business Rules:
 - **`REV-BR-01: Verified Purchase Prerequisite`**: Customer can submit a review ONLY for products previously purchased and delivered (`DELIVERED` or `COMPLETED`).
@@ -345,9 +345,9 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
   - `REJECTED`: Permanently hidden due to policy violations.
 - **`REV-BR-07: Verified Purchase Badge`**: Reviews linked to confirmed delivered orders display a `Verified Purchase` badge.
 - **`REV-BR-08: Average Rating Formula`**: `averageRating = SUM(ratings) / count(reviews)` rounded to 1 decimal place.
-- **`REV-BR-09: Asynchronous Metric Sync`**: Product average rating and review counts re-compute asynchronously upon review approval.
+- **`REV-BR-09: Transactional Metric Sync`**: When a review is approved, the product's `averageRating` and `reviewCount` are recomputed and written in the same `product_db` transaction as the review status change (Review and Product are modules of the same service, so no cross-service call or event is needed).
 - **`REV-BR-10: Event review.submitted`**: Emitted when customer posts a review.
-- **`REV-BR-11: Event review.approved`**: Emitted when review is approved; updates Product Service rating metrics.
+- **`REV-BR-11: Event review.approved`**: Emitted when a review is approved, for downstream consumers. The product rating update does not depend on this event; it happens in-transaction (`REV-BR-09`).
 - **`REV-BR-12: Consumer order.delivered`**: Updates customer eligibility record to allow product review submission.
 
 ---
@@ -403,7 +403,7 @@ This document serves as the **Master Business Rule Catalog** for the OmniCommerc
 - **`NOTIF-BR-02: SMS Dispatching`**: Dispatches short transactional SMS messages for order status updates and OTP verification codes via Twilio.
 - **`NOTIF-BR-03: Mobile Push Dispatching`**: Sends push notifications to iOS and Android devices via Firebase Cloud Messaging (FCM).
 - **`NOTIF-BR-04: Mandatory Transactional Messages`**: Transactional notifications (Password Reset, Order Placed, Payment Receipts) CANNOT be unsubscribed by users.
-- **`NOTIF-BR-05: Marketing Preference Check`**: Promotional notifications MUST check User Service preferences (`marketingEnabled = true`). Skips message if opted out.
+- **`NOTIF-BR-05: Marketing Preference Check`**: Promotional notifications MUST check Identity Service preferences (`marketingEnabled = true`). Skips message if opted out.
 - **`NOTIF-BR-06: Asynchronous Queueing`**: Outbound notifications are published as dispatch messages to the RabbitMQ topic exchange `omni.notification.dispatch` (routing keys `email`, `sms`, `push`) and consumed from durable per-channel queues (`omni.notification.email-dispatch.queue`, `omni.notification.sms-dispatch.queue`, `omni.notification.push-dispatch.queue`) to decouple dispatching from event emission.
 - **`NOTIF-BR-07: Dispatch Retry Strategy`**: Failed delivery attempts retry **3 times** with exponential backoff (10s, 30s, 90s) before moving to Dead Letter Queue (DLQ). Retries use RabbitMQ delay queues (`omni.notification.retry-10s.queue`, `retry-30s`, `retry-90s`) with `x-message-ttl` and `x-dead-letter-exchange = omni.notification.dispatch`, so expired messages return to their channel queue. The attempt count is carried in the `x-retry-count` header. After the 3rd failed retry the message is published to `omni.dead.letter` (routing key `dlq.notification`) and lands in `omni.notification.dlq`.
 - **`NOTIF-BR-08: Consumer auth.user.registered`**: Dispatches welcome email.
@@ -440,10 +440,9 @@ The following matrix traces domain events emitted by source services and their s
 
 | Emitted Event | Source Service | Consumer Service | Business Rule Executed | Action & Side Effect |
 |---|---|---|---|---|
-| `auth.user.registered` | Auth Service | User Service | `USER-BR-16` | Creates default profile & preference records in `user_db` |
-| `auth.user.registered` | Auth Service | Notification Service | `NOTIF-BR-08` | Queues and dispatches customer welcome email |
-| `auth.user.registered` | Auth Service | Analytics Service | `ANL-BR-12` | Increments new customer registration telemetry counter |
-| `auth.password.changed` | Auth Service | Notification Service | `NOTIF-BR-09` | Sends immediate password security alert email |
+| `auth.user.registered` | Identity Service | Notification Service | `NOTIF-BR-08` | Queues and dispatches customer welcome email |
+| `auth.user.registered` | Identity Service | Analytics Service | `ANL-BR-12` | Increments new customer registration telemetry counter |
+| `auth.password.changed` | Identity Service | Notification Service | `NOTIF-BR-09` | Sends immediate password security alert email |
 | `product.created` | Product Service | Search Service | `SRCH-BR-08` | Indexes new active product in Elasticsearch (`products_index`) |
 | `product.created` | Product Service | Analytics Service | `ANL-BR-13` | Increments active catalog product total counter |
 | `product.updated` | Product Service | Search Service | `SRCH-BR-09` | Updates Elasticsearch index document within 2-second SLA |
@@ -465,7 +464,7 @@ The following matrix traces domain events emitted by source services and their s
 | `shipping.dispatched` | Shipping Service | Order Service | `ORD-BR-22` | Transitions order status from `PROCESSING` to `SHIPPED` |
 | `shipping.dispatched` | Shipping Service | Notification Service | `NOTIF-BR-12` | Sends tracking number SMS & email notification |
 | `shipping.delivered` | Shipping Service | Order Service | `ORD-BR-18` | Transitions order status to `DELIVERED` |
-| `shipping.delivered` | Shipping Service | Review Service | `REV-BR-12` | Grants verified purchase review eligibility to customer |
+| `shipping.delivered` | Shipping Service | Product Service | `REV-BR-12` | Grants verified purchase review eligibility to customer |
 
 ---
 

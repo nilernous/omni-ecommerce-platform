@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/analytics-service/`  
 > **Default Port:** `3014`  
-> **Business Rules Reference:** [analytics.md](../business/analytics.md)  
+> **Business Rules Reference:** [analytics.md](../business-rules/analytics.md)  
 
 ---
 

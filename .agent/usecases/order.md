@@ -2,7 +2,7 @@
 
 > **Service Path:** `apps/backend/order-service/`  
 > **Default Port:** `3006`  
-> **Business Rules Reference:** [order.md](../business/order.md)  
+> **Business Rules Reference:** [order.md](../business-rules/order.md)  
 
 ---
 

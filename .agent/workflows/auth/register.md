@@ -11,7 +11,7 @@ status: Approved
 
 domain: Authentication
 
-target_service: auth-service
+target_service: identity-service
 
 owner: Authentication Team
 
@@ -88,7 +88,7 @@ Creates a new customer account by validating email uniqueness, hashing credentia
 | Property | Value |
 |----------|--------|
 | Domain | Authentication |
-| Target Service | auth-service |
+| Target Service | identity-service |
 | Primary Actor | Client / User |
 | Trigger | API Request / Event |
 | Output | Process Status Response |
@@ -103,8 +103,8 @@ Creates a new customer account by validating email uniqueness, hashing credentia
 
 ## Secondary Actors
 
-- auth-service
-- Database (auth_db)
+- identity-service
+- Database (identity_db)
 - MessageBroker (RabbitMQ)
 
 ---
@@ -119,8 +119,8 @@ User Registration is initiated via incoming client API request or internal messa
 
 The following conditions must be satisfied before execution.
 
-- [ ] Target service (auth-service) is online and responsive.
-- [ ] Database connection to auth_db is active.
+- [ ] Target service (identity-service) is online and responsive.
+- [ ] Database connection to identity_db is active.
 - [ ] Request parameters comply with structural schema validation.
 
 ---
@@ -135,13 +135,13 @@ The following conditions must be satisfied before execution.
 
 ## Step 2
 
-**DTO Validation**: Auth Service NestJS `ValidationPipe` executes class-validator decorators verifying `email` is RFC 5322 formatted (`AUTH-BR-02`) and `password` meets strength constraints (`AUTH-BR-03`).
+**DTO Validation**: Identity Service NestJS `ValidationPipe` executes class-validator decorators verifying `email` is RFC 5322 formatted (`AUTH-BR-02`) and `password` meets strength constraints (`AUTH-BR-03`).
 
 ---
 
 ## Step 3
 
-**Email Uniqueness Check**: Queries `auth_db` for existing email matching case-insensitively (`AUTH-BR-01`).
+**Email Uniqueness Check**: Queries `identity_db` for existing email matching case-insensitively (`AUTH-BR-01`).
 
 ---
 
@@ -153,7 +153,7 @@ The following conditions must be satisfied before execution.
 
 ## Step 5
 
-**Transactional Persistence**: Starts DB transaction, creates `user` record with `role: CUSTOMER` (`AUTH-BR-05`), and writes `auth.user.registered` event into `auth_outbox` (`AUTH-BR-06`).
+**Transactional Persistence**: Starts DB transaction, creates the `users` credential record with `role: CUSTOMER` (`AUTH-BR-05`), creates the initial `user_profiles` and `user_preferences` records (`USER-BR-16`), and writes the `auth.user.registered` event into `outbox_events` (`AUTH-BR-06`).
 
 ---
 
@@ -195,7 +195,7 @@ Reduced latency response delivered to primary actor.
 
 ### Cause
 
-Email Conflict - Email already exists in `auth_db`
+Email Conflict - Email already exists in `identity_db`
 
 ### Handling
 
@@ -260,8 +260,8 @@ sequenceDiagram
   autonumber
   actor Client as Client App (Web/Mobile)
   participant Gateway as API Gateway (:3000)
-  participant Auth as Auth Service (:3001)
-  participant DB as PostgreSQL (auth_db)
+  participant Auth as Identity Service · Auth (:3001)
+  participant DB as PostgreSQL (identity_db)
   participant Broker as RabbitMQ Event Bus
 
   Client->>Gateway: POST /api/v1/auth/register (Registration DTO)
@@ -271,7 +271,7 @@ sequenceDiagram
   Auth->>DB: Query SELECT email FROM users WHERE email = ?
   DB-->>Auth: Result (Null)
   Auth->>Auth: Hash Password with Argon2id / Bcrypt (Work factor 12)
-  Auth->>DB: BEGIN TRANSACTION: Insert user & outbox record (auth.user.registered)
+  Auth->>DB: BEGIN TRANSACTION: Insert users + user_profiles + user_preferences + outbox record (auth.user.registered)
   DB-->>Auth: Transaction Committed
   Auth->>Broker: Outbox Relay publishes `auth.user.registered` event
   Auth->>Auth: Issue RS256 JWT Access Token (1h) & Refresh Token (7d)
@@ -298,7 +298,7 @@ sequenceDiagram
 
 ## Updated
 
-- Target entity attributes in auth_db.
+- Target entity attributes in identity_db.
 
 ## Deleted
 
@@ -532,7 +532,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Internal Services
 
-- auth-service
+- identity-service
 
 ---
 
@@ -545,7 +545,7 @@ Triggers alert on error rate exceeding 2% over 5-minute window.
 
 ## Infrastructure
 
-- PostgreSQL (auth_db)
+- PostgreSQL (identity_db)
 - Redis Cache
 
 ---
